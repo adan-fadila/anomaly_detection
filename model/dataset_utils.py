@@ -18,6 +18,7 @@ class Data_Set_Manager:
             # Catch any other exceptions
             print(f"An unexpected error occurred: {e}")
         pass
+    
     def process_dataset(self):
         """
         Process the dataset by reading the relevant CSV file and preparing the dataframe.
@@ -27,6 +28,7 @@ class Data_Set_Manager:
 
         # Selecting only relevant columns
         meantemp_data = self.data[['date', 'meantemp']]
+        meantemp_data = meantemp_data.copy()
         meantemp_data['date'] = pd.to_datetime(meantemp_data['date'])
         meantemp_data['days'] = meantemp_data['date'] - meantemp_data['date'].min()
         

@@ -1,4 +1,3 @@
 {
-    "algorithms": ["stl"]
+    "algorithms": ["sarima"]
   }
-  

@@ -67,6 +67,9 @@
 
 
 
+
+#curl -v http://localhost:5000/detect_anomalies -H "Content-Type: application/json" -d "{\"sensor_values\": [{\"sensor_value\": 30.0}, {\"sensor_value\": 12.0}, {\"sensor_value\": 15.4}, {\"sensor_value\": 16.3}, {\"sensor_value\": 14.1}, {\"sensor_value\": 12.9}, {\"sensor_value\": 16.2}, {\"sensor_value\": 18.8}, {\"sensor_value\": 19.5}, {\"sensor_value\": 23.4}]}"
+
 # # # curl -v http://localhost:5000/detect_anomalies -H "Content-Type: application/json" -d "{\"sensor_values\": [{\"sensor_value\": 70.0}, {\"sensor_value\": 72.5}, {\"sensor_value\": 68.4}, {\"sensor_value\": 75.3}, {\"sensor_value\": 74.1}, {\"sensor_value\": 69.9}, {\"sensor_value\": 71.2}, {\"sensor_value\": 70.8}, {\"sensor_value\": 69.5}, {\"sensor_value\": 73.4}]}"
 from flask import Flask
 from routes.app_routes import anomaly_detection_bp
