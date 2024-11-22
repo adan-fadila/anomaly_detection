@@ -73,16 +73,25 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from routes.app_routes import anomaly_detection_bp
 from scripts.baysian_model_script import BayesianModel
 import requests
+import os
 
+# Initialize Flask app
 app = Flask(__name__)
+
+# Dynamically determine the dataset file path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = os.path.join(BASE_DIR, 'dataset', 'mock_data.csv')
+
+# Initialize the Bayesian Model
+bayesian_model = BayesianModel(DATA_FILE)
+
+# Register the Blueprint for anomaly detection routes
 app.register_blueprint(anomaly_detection_bp)
 
-data_file = 'data.csv'
-bayesian_model = BayesianModel(data_file)
-
+# Node.js server URL for recommendations
 NODEJS_SERVER_URL = 'http://localhost:8001/api/recommendations'
 
-
+# Function to run the Bayesian model and send recommendations
 def run_bayesian_model():
     print("Running Bayesian Model...")
     recommendations = bayesian_model.recommend_rules()
@@ -95,21 +104,24 @@ def run_bayesian_model():
     except Exception as e:
         print(f"Error sending recommendations: {e}")
 
-
-# Set up the scheduler
+# Initialize background scheduler
 scheduler = BackgroundScheduler()
-scheduler.add_job(run_bayesian_model, 'interval', minutes=30)
-scheduler.start()
+scheduler.add_job(run_bayesian_model, 'interval', minutes=2)
+scheduler_started = False  # Add a flag to ensure the scheduler starts only once
 
-# Shut down the scheduler when exiting the app
-@app.before_first_request
+@app.before_request
 def start_scheduler():
-    run_bayesian_model()  # Run once at startup
+    global scheduler_started
+    if not scheduler_started:
+        print("Starting Scheduler...")
+        run_bayesian_model()  # Execute once during app startup
+        scheduler.start()
+        scheduler_started = True
 
 @app.teardown_appcontext
 def shutdown_scheduler(exception=None):
-    scheduler.shutdown()
-
+    if scheduler.started:
+        scheduler.shutdown()
 
 if __name__ == '__main__':
     app.run(debug=True)
