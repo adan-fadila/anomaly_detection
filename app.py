@@ -69,9 +69,47 @@
 
 # # # curl -v http://localhost:5000/detect_anomalies -H "Content-Type: application/json" -d "{\"sensor_values\": [{\"sensor_value\": 70.0}, {\"sensor_value\": 72.5}, {\"sensor_value\": 68.4}, {\"sensor_value\": 75.3}, {\"sensor_value\": 74.1}, {\"sensor_value\": 69.9}, {\"sensor_value\": 71.2}, {\"sensor_value\": 70.8}, {\"sensor_value\": 69.5}, {\"sensor_value\": 73.4}]}"
 from flask import Flask
+from apscheduler.schedulers.background import BackgroundScheduler
 from routes.app_routes import anomaly_detection_bp
+from scripts.baysian_model_script import BayesianModel
+import requests
+
 app = Flask(__name__)
 app.register_blueprint(anomaly_detection_bp)
+
+data_file = 'data.csv'
+bayesian_model = BayesianModel(data_file)
+
+NODEJS_SERVER_URL = 'http://localhost:8001/api/recommendations'
+
+
+def run_bayesian_model():
+    print("Running Bayesian Model...")
+    recommendations = bayesian_model.recommend_rules()
+    try:
+        response = requests.post(NODEJS_SERVER_URL, json={'recommendations': recommendations})
+        if response.status_code == 200:
+            print("Recommendations sent successfully.")
+        else:
+            print(f"Failed to send recommendations: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending recommendations: {e}")
+
+
+# Set up the scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(run_bayesian_model, 'interval', minutes=30)
+scheduler.start()
+
+# Shut down the scheduler when exiting the app
+@app.before_first_request
+def start_scheduler():
+    run_bayesian_model()  # Run once at startup
+
+@app.teardown_appcontext
+def shutdown_scheduler(exception=None):
+    scheduler.shutdown()
+
 
 if __name__ == '__main__':
     app.run(debug=True)

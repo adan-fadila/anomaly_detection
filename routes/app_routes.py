@@ -4,6 +4,13 @@ import json
 from algorithm_manager.anomaly_detection_manager import AnomalyDetectionManager
 from model.dataset_utils import Data_Set_Manager
 
+
+from scripts.baysian_model_script import BayesianModel
+
+anomaly_detection_bp = Blueprint('anomaly_detection', __name__)
+data_file = 'data.csv'
+bayesian_model = BayesianModel(data_file)
+
 anomaly_detection_bp = Blueprint('anomaly_detection', __name__)
 
 def load_algorithm_config():
@@ -53,3 +60,8 @@ def detect_anomalies():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@anomaly_detection_bp.route('/recommend_rules', methods=['GET'])
+def recommend_rules():
+    recommendations = bayesian_model.recommend_rules()
+    return jsonify(recommendations)
