@@ -15,16 +15,12 @@ class BayesianModel:
         self.train_model()
 
     def prepare_data(self):
-        # Discretize numeric columns for Bayesian Network
+        # Parse timestamp to extract hour for time-based recommendations
+        self.data['hour'] = pd.to_datetime(self.data['timestamp']).dt.hour
         self.data['temperature'] = pd.cut(self.data['temperature'], bins=[-float('inf'), 18, 22, 26, float('inf')],
                                           labels=['low', 'normal', 'high', 'very_high'])
         self.data['humidity'] = pd.cut(self.data['humidity'], bins=[-float('inf'), 30, 60, 90, float('inf')],
                                        labels=['low', 'normal', 'high', 'very_high'])
-        self.data['distance'] = pd.cut(self.data['distance'], bins=[-float('inf'), 10, 50, 100, float('inf')],
-                                       labels=['near', 'medium', 'far', 'very_far'])
-        self.data['ac_temperature'] = pd.cut(self.data['ac_temperature'], bins=[-float('inf'), 18, 22, 26, float('inf')],
-                                             labels=['low', 'normal', 'high', 'very_high'])
-        # Drop unused columns for simplicity
         self.data.drop(columns=['timestamp'], inplace=True)
 
     def create_bayesian_network(self):
@@ -33,9 +29,10 @@ class BayesianModel:
             ('temperature', 'ac_status'),
             ('humidity', 'ac_status'),
             ('ac_status', 'ac_energy'),
-            ('ac_temperature', 'ac_status'),
-            ('distance', 'fan'),
-            ('fan', 'fan_energy')
+            ('hour', 'ac_status'),
+            ('hour', 'fan'),
+            ('hour', 'lights'),
+            ('hour', 'laundry_machine')
         ])
 
     def train_model(self):
@@ -44,17 +41,24 @@ class BayesianModel:
         self.inference = VariableElimination(self.model)
 
     def recommend_rules(self):
-        # Mock recommendation logic based on Bayesian Network inference
-        evidence = {
-            'temperature': 'normal',
-            'humidity': 'high',
-            'distance': 'near'
-        }
-        devices = ['ac_status', 'fan']
-        recommendations = []
+        # Generate time-based recommendations for all devices
+        time_based_rules = self.get_time_based_rules()
+        return time_based_rules
+
+    def get_time_based_rules(self):
+        # Analyze historical data for time-based usage patterns
+        devices = ['ac_status', 'fan', 'lights', 'laundry_machine']
+        rules = []
+
         for device in devices:
-            query_result = self.inference.query(variables=[device], evidence=evidence)
-            probabilities = query_result.values
-            recommendation = 'on' if probabilities[1] > 0.5 else 'off'
-            recommendations.append({'device': device, 'recommendation': recommendation})
-        return recommendations
+            grouped = self.data.groupby(['hour', device]).size().unstack(fill_value=0)
+            if 'on' in grouped.columns:
+                # Identify peak usage hours for the device
+                peak_hours = grouped['on'].idxmax()
+                rules.append({
+                    'device': device,
+                    'recommendation': 'on',
+                    'recommended_time': f'{peak_hours}:00 to {(peak_hours + 7) % 24}:00'
+                })
+
+        return rules
