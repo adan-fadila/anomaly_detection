@@ -3,7 +3,7 @@ import pandas as pd
 from algorithms.stl_algorithm import STLAlgorithm
 from algorithms.arima_algorithm import ARIMAAlgorithm
 from algorithms.sarima_algorithm import SARIMAAlgorithm
-
+from algorithms.dbscan_algorithm import DBSCANAlgorithm
 
 class AnomalyDetectionManager:
     def __init__(self, algorithms: List[str]):
@@ -11,7 +11,8 @@ class AnomalyDetectionManager:
         self.algorithms_map = {
             'stl': STLAlgorithm(),
             'arima': ARIMAAlgorithm(),
-            'sarima': SARIMAAlgorithm()
+            'sarima': SARIMAAlgorithm(),
+            'dbscan': DBSCANAlgorithm()
         }
         self.selected_algorithms = self._load_selected_algorithms(algorithms)
 
