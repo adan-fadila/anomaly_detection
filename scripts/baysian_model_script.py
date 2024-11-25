@@ -4,6 +4,9 @@ from pgmpy.estimators import BayesianEstimator
 from pgmpy.inference import VariableElimination
 
 
+
+
+
 class BayesianModel:
     def __init__(self, data_file):
         self.data_file = data_file
