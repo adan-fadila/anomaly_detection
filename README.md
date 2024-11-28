@@ -104,7 +104,7 @@ The API processes incoming sensor data, detects anomalies, and provides rule-bas
 ### Running the Application
 1. Start the Flask server:
    ```bash
-   python run.py
+   python server.py
    ```
 2. The server will start on `http://127.0.0.1:5000`.
 
