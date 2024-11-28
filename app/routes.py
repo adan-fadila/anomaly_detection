@@ -24,9 +24,9 @@ def load_algorithm_config(config_file=CONFIG_FILE):
     try:
         with open(config_file, 'r') as f:
             config = json.load(f)
-        return config.get("algorithms", ["stl"])
+        return config.get("algorithms")
     except FileNotFoundError:
-        return ["stl"]
+        return ["stl", "arima", "sarima", "dbscan"]
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in configuration file: {e}")
 

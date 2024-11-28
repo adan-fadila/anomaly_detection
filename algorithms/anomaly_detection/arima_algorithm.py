@@ -13,6 +13,7 @@ class ARIMAAlgorithm(AnomalyDetectionAlgorithm):
         self.pdq= (1,1,1)
         self.threshold = 3
         self.windowSize = 30
+        self.feature = 'meantemp'
         self.logger = logging.getLogger(self.__class__.__name__)
         logging.basicConfig(
             format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',

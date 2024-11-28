@@ -16,6 +16,7 @@ class DBSCANAlgorithm(AnomalyDetectionAlgorithm):
         self.min_samples =2
         self.window_size = 100
         self.step_size = 50
+        self.feature = 'meantemp'
         self.logger = logging.getLogger(self.__class__.__name__)
         logging.basicConfig(
             format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',

@@ -13,12 +13,14 @@ class SARIMAAlgorithm(AnomalyDetectionAlgorithm):
         self.pdq= (1,1,1)
         self.threshold = 3
         self.windowSize = 100
+        self.feature = 'meantemp'
         self.logger = logging.getLogger(self.__class__.__name__)
         logging.basicConfig(
             format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
             level=logging.INFO
         )
         self.logger.info(f"{self.__class__.__name__} class instantiated")
+        
         pass
 
     def process_data(self,dataset):
