@@ -1,4 +1,4 @@
 {
-    "algorithms": ["stl"]
+    "algorithms": ["stl","arima","sarima","dbscan"]
   }
   

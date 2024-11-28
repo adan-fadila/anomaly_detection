@@ -8,7 +8,7 @@ from algorithms.recommendations.bayesian import BayesianRecommendation
 
 # Determine project root directory and dataset path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_FILE = os.path.join(BASE_DIR, 'data', 'csv', 'mock_data.csv')
+DATA_FILE = os.path.join(BASE_DIR, 'data', 'csv', 'DailyDelhiClimateTrain.csv')
 CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
 
 # Initialize Blueprints
