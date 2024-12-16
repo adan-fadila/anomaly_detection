@@ -4,6 +4,7 @@ from algorithms.anomaly_detection.stl_algorithm import STLAlgorithm
 from algorithms.anomaly_detection.arima_algorithm import ARIMAAlgorithm
 from algorithms.anomaly_detection.sarima_algorithm import SARIMAAlgorithm
 from algorithms.anomaly_detection.dbscan_algorithm import DBSCANAlgorithm
+from algorithms.anomaly_detection.VAE_algorithm import VAEAlgorithm
 
 
 class AnomalyDetectionManager:
@@ -13,7 +14,8 @@ class AnomalyDetectionManager:
             'stl': STLAlgorithm(),
             'arima': ARIMAAlgorithm(),
             'sarima': SARIMAAlgorithm(),
-            'dbscan': DBSCANAlgorithm()
+            'dbscan': DBSCANAlgorithm(),
+            'VAE': VAEAlgorithm()
         }
         self.selected_algorithms = self._load_selected_algorithms(algorithms)
 

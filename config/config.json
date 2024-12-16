@@ -1,4 +1,3 @@
 {
-    "algorithms": ["stl","arima","sarima","dbscan"]
-  }
-  
+    "algorithms": ["stl","arima","sarima","dbscan","VAE"]
+}

@@ -5,10 +5,11 @@ from flask import Blueprint, request, jsonify
 from managers.anomaly_manager import AnomalyDetectionManager
 from utils.data_manager import Data_Set_Manager
 from algorithms.recommendations.bayesian import BayesianRecommendation
+import logging
 
 # Determine project root directory and dataset path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_FILE = os.path.join(BASE_DIR, 'data', 'csv', 'DailyDelhiClimateTrain.csv')
+DATA_FILE = os.path.join(BASE_DIR, 'data', 'csv', 'synthetic_meantemp_data.csv')
 CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
 
 # Initialize Blueprints
@@ -26,7 +27,7 @@ def load_algorithm_config(config_file=CONFIG_FILE):
             config = json.load(f)
         return config.get("algorithms")
     except FileNotFoundError:
-        return ["stl", "arima", "sarima", "dbscan"]
+        return ["stl", "arima", "sarima", "dbscan","VAE"]
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in configuration file: {e}")
 
@@ -125,4 +126,59 @@ def recommend_rules():
         recommendations = bayesian_model.recommend_rules()
         return jsonify(recommendations), 200
     except Exception as e:
+        return jsonify({'error': f'Internal Server Error: {e}'}), 500
+
+
+
+
+@anomaly_detection_bp.route('/detect_dataset_anomalies', methods=['GET'])
+def detect_dataset_anomalies():
+    print("detect_dataset_anomalies endpoint accessed")
+    """
+    Detect anomalies directly from the dataset
+    ---
+    tags:
+      - Anomaly Detection
+    responses:
+      200:
+        description: Successfully detected anomalies in the dataset
+        schema:
+          type: object
+          properties:
+            anomalies:
+              type: array
+              items:
+                type: object
+      500:
+        description: Internal server error
+    """
+    try:
+        logging.info("detect_dataset_anomalies endpoint accessed")
+
+        # Load dataset
+        logging.info(f"Loading dataset from {DATA_FILE}")
+        dataset_manager = Data_Set_Manager(DATA_FILE)
+        dataset = dataset_manager.process_dataset()
+        logging.info("Dataset successfully loaded and processed")
+
+        # Load algorithms
+        algorithms_to_use = load_algorithm_config()
+        logging.info(f"Using algorithms: {algorithms_to_use}")
+        anomaly_manager = AnomalyDetectionManager(algorithms_to_use)
+
+        # Detect anomalies
+        logging.info("Detecting anomalies in the dataset")
+        result = anomaly_manager.detect_anomalies(dataset, dataset)
+        anomalies = result[result['is_anomaly'] == True]
+        logging.info(f"Anomalies detected: {len(anomalies)}")
+
+        # Prepare response
+        response = {'anomalies': anomalies.to_dict(orient='records')}
+        return jsonify(response), 200
+
+    except ValueError as ve:
+        logging.error(f"ValueError occurred: {ve}", exc_info=True)
+        return jsonify({'error': f'ValueError: {ve}'}), 400
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}", exc_info=True)
         return jsonify({'error': f'Internal Server Error: {e}'}), 500
