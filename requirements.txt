@@ -4,3 +4,4 @@ statsmodels
 scikit-learn
 pgmpy
 Flask
+apscheduler

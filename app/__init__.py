@@ -13,5 +13,6 @@ def create_app():
     # Register Blueprints
     app.register_blueprint(recommendation_bp, url_prefix='/api/v1/recommendation')
     app.register_blueprint(anomaly_detection_bp, url_prefix='/api/v1/anomaly_detection')
+    app.register_blueprint(anomaly_detection_bp, url_prefix='/api/v1/')
 
     return app
