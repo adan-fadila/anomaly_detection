@@ -9,8 +9,8 @@ import logging
 
 # Determine project root directory and dataset path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_FILE = os.path.join(BASE_DIR, 'data', 'csv', 'mock_data.csv')
-CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
+DATA_FILE = os.path.join(BASE_DIR, 'data', 'logs', 'sensor_data.csv')
+CONFIG_FILE = os.path.join(BASE_DIR, 'config', 'config.json')
 
 # Initialize Blueprints
 anomaly_detection_bp = Blueprint('anomaly_detection', __name__)
@@ -130,55 +130,51 @@ def recommend_rules():
 
 
 
-
 @anomaly_detection_bp.route('/detect_dataset_anomalies', methods=['GET'])
 def detect_dataset_anomalies():
-    print("detect_dataset_anomalies endpoint accessed")
-    """
-    Detect anomalies directly from the dataset
-    ---
-    tags:
-      - Anomaly Detection
-    responses:
-      200:
-        description: Successfully detected anomalies in the dataset
-        schema:
-          type: object
-          properties:
-            anomalies:
-              type: array
-              items:
-                type: object
-      500:
-        description: Internal server error
-    """
     try:
         logging.info("detect_dataset_anomalies endpoint accessed")
-
-        # Load dataset
-        logging.info(f"Loading dataset from {DATA_FILE}")
-        dataset_manager = Data_Set_Manager(DATA_FILE)
+        dataset_file = os.getenv('DATA_FILE', DATA_FILE)
+        logging.info(f"Loading dataset from {dataset_file}")
+        dataset_manager = Data_Set_Manager(dataset_file)
         dataset = dataset_manager.process_dataset()
+
+        if dataset is None or dataset.empty:
+            raise ValueError("Failed to load dataset. Dataset is empty or None.")
+
         logging.info("Dataset successfully loaded and processed")
 
-        # Load algorithms
+        required_columns = ['timestamp']
+        for col in required_columns:
+            if col not in dataset.columns:
+                raise ValueError(f"The dataset must contain the '{col}' column.")
+
         algorithms_to_use = load_algorithm_config()
         logging.info(f"Using algorithms: {algorithms_to_use}")
         anomaly_manager = AnomalyDetectionManager(algorithms_to_use)
 
         # Detect anomalies
-        logging.info("Detecting anomalies in the dataset")
-        result = anomaly_manager.detect_anomalies(dataset, dataset)
-        anomalies = result[result['is_anomaly'] == True]
-        logging.info(f"Anomalies detected: {len(anomalies)}")
+        result = anomaly_manager.detect_anomalies(dataset)
 
-        # Prepare response
-        response = {'anomalies': anomalies.to_dict(orient='records')}
+        # Debug anomalies DataFrame
+        logging.info(f"Final anomalies DataFrame columns: {result.columns.tolist()}")
+        logging.info(f"Final anomalies DataFrame head: {result.head()}")
+
+        # if 'ac_temperature' not in result.columns:
+        #     raise KeyError("'ac_temperature' column missing in anomalies DataFrame.")
+
+        anomalies_detected = result.to_dict(orient='records')
+        logging.info(f"Total anomalies detected: {len(anomalies_detected)}")
+
+        response = {'anomalies': anomalies_detected}
         return jsonify(response), 200
 
     except ValueError as ve:
         logging.error(f"ValueError occurred: {ve}", exc_info=True)
-        return jsonify({'error': f'ValueError: {ve}'}), 400
+        return jsonify({'error': 'Input Error: Dataset issue.'}), 400
+    except KeyError as ke:
+        logging.error(f"KeyError: {ke}", exc_info=True)
+        return jsonify({'error': 'Key Error in processing.'}), 500
     except Exception as e:
-        logging.error(f"An unexpected error occurred: {e}", exc_info=True)
-        return jsonify({'error': f'Internal Server Error: {e}'}), 500
+        logging.error(f"An unexpected error occurred.", exc_info=True)
+        return jsonify({'error': 'Internal Server Error'}), 500
