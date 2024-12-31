@@ -1,36 +1,31 @@
 from core.base_anomaly import AnomalyDetectionAlgorithm
-import logging
 from statsmodels.tsa.seasonal import STL
 import pandas as pd
+
 class STLAlgorithm(AnomalyDetectionAlgorithm):
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(self.__class__.__name__)
-        logging.basicConfig(
-            format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-            level=logging.INFO
-        )
-        self.logger.info(f"{self.__class__.__name__} class instantiated")
+        self.std = 4
 
-    def detect_anomalies(self, df, dataset):
-        self.logger.info(f"{self.__class__.__name__} - detect_anomalies method invoked")
-        # Process data
-        column = df.columns[1]  # Assumes 'timestamp' is first
-        data = pd.concat([dataset, df], ignore_index=True)
-        data.sort_values(by='timestamp', inplace=True)
-        data.reset_index(drop=True, inplace=True)
-
-        # STL decomposition
-        stl = STL(data[column], period=365)
+    def process_data(self, dataset):
+        return dataset[self.feature]
+    
+    
+    def detect_anomalies(self, df,dataset):
+        dataset = pd.concat([dataset, df], ignore_index=True)
+        dataset.sort_values(by='date', inplace=True)
+        dataset.reset_index(drop=True, inplace=True)
+        data = self.process_data(dataset)
+        stl = STL(data, period=365)
         result = stl.fit()
         residuals = result.resid
-        threshold = residuals.std() * 0.4
-        new_points_residuals = residuals.iloc[-len(df):].reset_index(drop=True)
-
-        # Detect anomalies
+        threshold = residuals.std() * self.std
+        new_points_residuals = residuals.iloc[-len(df):]
+        new_points_residuals = new_points_residuals.reset_index(drop=True)
         anomalies = df[new_points_residuals.abs() > threshold].copy()
-        anomalies.reset_index(drop=True, inplace=True)
-        anomalies['algorithm'] = self.__class__.__name__
+        anomalies['date'] = df.loc[new_points_residuals.abs() > threshold, 'date']
 
-        print(f"Anomalies detected by {self.__class__.__name__}: {anomalies}")
+        anomalies.reset_index(drop=True, inplace=True)
+        print(anomalies)
         return anomalies
+    

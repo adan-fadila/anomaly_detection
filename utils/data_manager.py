@@ -1,6 +1,4 @@
 import pandas as pd
-import logging
-
 
 class Data_Set_Manager:
     def __init__(self, file_path):
@@ -16,54 +14,29 @@ class Data_Set_Manager:
         Attempt to load the dataset from the file path.
         """
         try:
-            logging.info(f"Loading dataset from {self.file_path}")
-            self.data = pd.read_csv(self.file_path)
-            logging.info("Dataset successfully loaded")
+            self.data = pd.read_csv(self.file_path).copy()
         except FileNotFoundError as e:
-            logging.error(f"Error: The file was not found. Details: {e}")
-            self.data = None
+            print(f"Error: The file was not found. Details: {e}")
         except pd.errors.EmptyDataError as e:
-            logging.error(f"Error: The file is empty. Details: {e}")
-            self.data = None
+            print(f"Error: The file is empty. Details: {e}")
         except Exception as e:
-            logging.error(f"An unexpected error occurred while loading the dataset: {e}")
-            self.data = None
+            print(f"An unexpected error occurred: {e}")
 
     def process_dataset(self):
         """
-        Process the dataset to ensure it meets the requirements for anomaly detection.
-
-        Returns:
-            pd.DataFrame: Processed dataset.
+        Process the dataset by selecting relevant columns and preparing it.
         """
-        try:
-            if self.data is None:
-                raise ValueError("Dataset is not loaded. Please check the file path or contents.")
-
-            # Ensure the dataset has a 'timestamp' column
-            if 'timestamp' not in self.data.columns:
-                raise ValueError("The dataset must contain a 'timestamp' column.")
-
-            # Drop rows with missing timestamp
-            self.data.dropna(subset=['timestamp'], inplace=True)
-
-            # Convert the 'timestamp' column to datetime
-            self.data['timestamp'] = pd.to_datetime(self.data['timestamp'], errors='coerce')
-
-            # Drop rows with invalid timestamps
-            self.data.dropna(subset=['timestamp'], inplace=True)
-
-            # Ensure all other columns are processed as numeric where possible
-            for column in self.data.columns:
-                if column != 'timestamp':
-                    self.data[column] = pd.to_numeric(self.data[column], errors='coerce')
-
-            logging.info("Dataset successfully processed")
-            return self.data
-
-        except ValueError as ve:
-            logging.error(f"ValueError during dataset processing: {ve}")
+        if self.data is None:
+            print("Error: No data loaded.")
             return None
+
+        try:
+            meantemp_data = self.data[['date', 'meantemp']]
+            meantemp_data['date'] = pd.to_datetime(meantemp_data['date'])
+            meantemp_data['days'] = (meantemp_data['date'] - meantemp_data['date'].min()).dt.days
+            return meantemp_data
+        except KeyError as e:
+            print(f"Error: Missing required columns. Details: {e}")
         except Exception as e:
-            logging.error(f"An unexpected error occurred during dataset processing: {e}")
+            print(f"An unexpected error occurred during processing: {e}")
             return None

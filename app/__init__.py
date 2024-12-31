@@ -2,8 +2,8 @@ from flask import Flask
 from flasgger import Swagger
 from app.routes import recommendation_bp, anomaly_detection_bp 
 from config.config import Config
-from utils.logs_monitor import start_logs_monitor
-
+from utils.anomaly_monitor import start_anomaly_monitor
+from utils.recommendation_monitor import start_recommendation_monitor
 
 def create_app():
     app = Flask(__name__)
@@ -13,7 +13,8 @@ def create_app():
     swagger = Swagger(app)
     
     # Start the feed monitor scheduler
-    start_logs_monitor()
+    start_anomaly_monitor()
+    start_recommendation_monitor()
 
 
     # Register Blueprints
