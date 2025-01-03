@@ -15,11 +15,14 @@ logger = logging.getLogger()
 
 # Constants
 BASE_DIR = os.getcwd()
-CSV_FILE_PATH = os.path.join(BASE_DIR, "data", "logs", "sensor_data_anomaly.csv")
-
+CSV_FILE_PATH = os.path.join(BASE_DIR,"..","data", "logs", "sensor_data_anomaly.csv")
+CSV_FILE_PATH_2 = os.path.join(BASE_DIR, "..","data", "csv", "DailyDelhiClimateTrain.csv")
+print(CSV_FILE_PATH)
 # Function to generate mean temperature anomalies
-def generate_anomalies(mean_temp, num_anomalies=5):
-    anomalies = mean_temp + np.random.uniform(-15, 15, num_anomalies)
+def generate_anomalies(mean_temp, num_anomalies=1):
+    print(f"mean_temp: {mean_temp}")    
+    anomalies = mean_temp + np.random.choice([-15, 15], num_anomalies)
+    print(f"anomalies: {anomalies}")
     return anomalies
 
 def train_model(df):
@@ -67,6 +70,7 @@ def generate_predictions(model, start_date, days, seasonal_means):
 
     # Introduce anomalies in the temperature
     anomaly_indices = np.random.choice(len(new_data), 5, replace=False)
+    print(f"anomaly_indices: {anomaly_indices}")
     for idx in anomaly_indices:
         new_data[idx]['meantemp'] = generate_anomalies(new_data[idx]['meantemp'], num_anomalies=1)[0]
 
@@ -77,8 +81,9 @@ def generate_predictions(model, start_date, days, seasonal_means):
 def main():
     try:
         # Read existing data
+        
         logger.info("Reading existing data from CSV.")
-        df = pd.read_csv(CSV_FILE_PATH, parse_dates=['date'])
+        df = pd.read_csv(CSV_FILE_PATH_2, parse_dates=['date'])
 
         # Train the model
         model = train_model(df)
@@ -90,13 +95,12 @@ def main():
         # Generate 30 new data points
         seasonal_means = df.groupby('month')['meantemp'].mean()
         new_df = generate_predictions(model, last_date, 30, seasonal_means)
-
         # Append new data to the DataFrame
-        combined_df = pd.concat([df, new_df], ignore_index=True)
+        # combined_df = pd.concat([df, new_df], ignore_index=True)
 
         # Save back to CSV
         logger.info("Saving updated data back to CSV.")
-        combined_df.to_csv(CSV_FILE_PATH, index=False)
+        new_df.to_csv(CSV_FILE_PATH, index=False)
         logger.info("Data generation completed successfully.")
 
     except Exception as e:

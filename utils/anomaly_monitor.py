@@ -3,6 +3,11 @@ import logging
 import pandas as pd
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
+import threading
+import time
+
+
+job_lock = threading.Lock()
 
 # Configure logging
 logging.basicConfig(
@@ -12,9 +17,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'anomaly_detection'))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DATA_FILE_ANOMALY = os.path.join(BASE_DIR, "data", "logs", "sensor_data_anomaly.csv")
-
 BASE_URL = "http://127.0.0.1:5000/api/v1"
 NODE_BASE_URL = "http://127.0.0.1:8001"
 DETECT_ANOMALIES_ENDPOINT = "/anomaly_detection/detect_dataset_anomalies"
@@ -33,38 +37,57 @@ def send_to_node(api_url, data):
 
 def check_anomaly_logs():
     global last_modified_time_anomaly
-
     if not os.path.exists(DATA_FILE_ANOMALY):
         logger.warning(f"File not found: {DATA_FILE_ANOMALY}")
         return
+    if job_lock.locked():
+        logger.info("Anomaly job skipped due to another job running.")
+        return
+    with job_lock:
+        
+        logger.info("Lock acquired, running anomaly detection.")
+        current_modified_time = os.path.getmtime(DATA_FILE_ANOMALY)
+        
+        if last_modified_time_anomaly is None or current_modified_time > last_modified_time_anomaly:
+            last_modified_time_anomaly = current_modified_time
+            logger.info("New anomaly logs detected! Triggering anomaly detection...")
 
-    current_modified_time = os.path.getmtime(DATA_FILE_ANOMALY)
-    if last_modified_time_anomaly is None or current_modified_time > last_modified_time_anomaly:
-        last_modified_time_anomaly = current_modified_time
-        logger.info("New anomaly logs detected! Triggering anomaly detection...")
+            try:
+                data = pd.read_csv(DATA_FILE_ANOMALY)
+                logger.info(f"Loaded anomaly data: {data.tail()}")
+                
+            except Exception as e:
+                logger.error(f"Error reading anomaly CSV file: {e}")
+                return
 
-        try:
-            data = pd.read_csv(DATA_FILE_ANOMALY)
-            logger.info(f"Loaded anomaly data: {data.tail()}")
-        except Exception as e:
-            logger.error(f"Error reading anomaly CSV file: {e}")
-            return
+            try:
+                response = requests.get(f"{BASE_URL}{DETECT_ANOMALIES_ENDPOINT}")
+                if response.status_code == 200:
+                    logger.info("Anomaly detection triggered successfully.")
+                    send_to_node(f"{NODE_BASE_URL}{NODE_ANOMALY_RESPONSE_ENDPOINT}", response.json())
+                else:
+                    logger.error(f"Failed to trigger anomaly detection: {response.status_code}")
+            except Exception as e:
+                logger.error(f"Error triggering anomaly detection: {e}")
+        else:
+            logger.info("No new anomaly logs detected.")
+        logger.info("Job finished; waiting for the next scheduled run.")
 
-        try:
-            response = requests.get(f"{BASE_URL}{DETECT_ANOMALIES_ENDPOINT}")
-            if response.status_code == 200:
-                logger.info("Anomaly detection triggered successfully.")
-                send_to_node(f"{NODE_BASE_URL}{NODE_ANOMALY_RESPONSE_ENDPOINT}", response.json())
-            else:
-                logger.error(f"Failed to trigger anomaly detection: {response.status_code}")
-        except Exception as e:
-            logger.error(f"Error triggering anomaly detection: {e}")
-    else:
-        logger.info("No new anomaly logs detected.")
 
 
 def start_anomaly_monitor():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(check_anomaly_logs, 'interval', minutes=1)
+    scheduler.add_job(
+    check_anomaly_logs,
+    'interval',
+    minutes=1,
+    id='check_anomaly_logs',
+    max_instances=1,
+    replace_existing=True
+)
     scheduler.start()
+    print("Current jobs in scheduler:")
+    for job in scheduler.get_jobs():
+        print(f"Job ID: {job.id}, Next Run Time: {job.next_run_time}")
+
     logger.info("Anomaly monitor scheduler started.")

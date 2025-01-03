@@ -9,6 +9,7 @@
 ##### Numpy
 
 import os
+
 # To force use of the compat code, set this env var to a non-empty value:
 optional_dep_ok = not os.environ.get("PATSY_AVOID_OPTIONAL_DEPENDENCIES")
 
@@ -23,6 +24,7 @@ optional_dep_ok = not os.environ.get("PATSY_AVOID_OPTIONAL_DEPENDENCIES")
 # OrderedDict is only available in Python 2.7+. compat_ordereddict.py has
 # comments at the top.
 import collections
+
 if optional_dep_ok and hasattr(collections, "OrderedDict"):
     from collections import OrderedDict
 else:
@@ -31,20 +33,11 @@ else:
 # 'raise from' available in Python 3+
 import sys
 from patsy import PatsyError
+
+
 def call_and_wrap_exc(msg, origin, f, *args, **kwargs):
     try:
         return f(*args, **kwargs)
     except Exception as e:
-        if sys.version_info[0] >= 3:
-            new_exc = PatsyError("%s: %s: %s"
-                                 % (msg, e.__class__.__name__, e),
-                                 origin)
-            # Use 'exec' to hide this syntax from the Python 2 parser:
-            exec("raise new_exc from e")
-        else:
-            # In python 2, we just let the original exception escape -- better
-            # than destroying the traceback. But if it's a PatsyError, we can
-            # at least set the origin properly.
-            if isinstance(e, PatsyError):
-                e.set_origin(origin)
-            raise
+        new_exc = PatsyError("%s: %s: %s" % (msg, e.__class__.__name__, e), origin)
+        raise new_exc from e

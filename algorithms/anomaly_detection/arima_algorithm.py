@@ -32,7 +32,6 @@ class ARIMAAlgorithm(AnomalyDetectionAlgorithm):
         Returns:
             pd.DataFrame: A copy of the DataFrame with an added 'is_anomaly' column.
         """
-        # print(df)
         data = self.process_data(dataset)
 
         if len(data) < self.windowSize:
@@ -55,7 +54,10 @@ class ARIMAAlgorithm(AnomalyDetectionAlgorithm):
             
             if abs(residual) > self.threshold * np.std(window_data):
                 anomalies.append({'date': row['date'], self.feature: new_point})
-            historical_data.append(new_point)
+                historical_data.append(predicted_value)
+           
+            else:
+                historical_data.append(new_point)
         anomalies_df = pd.DataFrame(anomalies)
         anomalies_df.reset_index(drop=True, inplace=True)
         # print(anomalies_df)

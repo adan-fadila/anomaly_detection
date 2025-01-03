@@ -11,7 +11,7 @@ class AnomalyDetectionManager:
         self.algorithms_map = {
             'stl': STLAlgorithm(),
             'arima': ARIMAAlgorithm(),
-            # 'sarima': SARIMAAlgorithm(),
+            'sarima': SARIMAAlgorithm(),
             'dbscan': DBSCANAlgorithm()
         }
         self.selected_algorithms = self._load_selected_algorithms(algorithms)
@@ -21,6 +21,7 @@ class AnomalyDetectionManager:
         return [self.algorithms_map[algo] for algo in algorithms if algo in self.algorithms_map]
 
     def detect_anomalies(self, df: pd.DataFrame,dataset):
+       
         # Detect anomalies using the selected algorithms
         combined_anomalies = pd.DataFrame(index=df.index, columns=['anomaly_score', 'anomaly_val', 'date', 'voting_algorithms'])
         combined_anomalies['anomaly_score'] = 0

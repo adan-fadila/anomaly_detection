@@ -8,7 +8,9 @@ from algorithms.recommendations.bayesian import BayesianRecommendation
 
 # Determine project root directory and dataset path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_FILE_ANOMALY = os.path.join(BASE_DIR, 'data', 'logs', 'sensor_data_anomaly.csv')
+print(BASE_DIR)
+ANOMALY_DATA_FRAME_FILE = os.path.join(BASE_DIR, 'data', 'logs', 'sensor_data_anomaly.csv')
+ANOMALY_DATASET_FILE = os.path.join(BASE_DIR, 'data', 'csv', 'DailyDelhiClimateTrain.csv')
 DATA_FILE_RECOMMENDATION = os.path.join(BASE_DIR, 'data', 'logs', 'sensor_data_recommendation.csv')
 
 CONFIG_FILE = os.path.join(BASE_DIR,'config','config.json')
@@ -114,9 +116,8 @@ def detect_anomalies():
         # Step 4: Initialize AnomalyDetectionManager
         algorithms_to_use = load_algorithm_config()
         anomaly_manager = AnomalyDetectionManager(algorithms_to_use)
-
         # Step 5: Load dataset
-        dataset_manager = Data_Set_Manager(DATA_FILE_ANOMALY)
+        dataset_manager = Data_Set_Manager(ANOMALY_DATA_FRAME_FILE)
         dataset = dataset_manager.process_dataset()
 
         # Step 6: Perform anomaly detection
@@ -193,8 +194,11 @@ def detect_anomalies():
 def detect_dataset_anomalies():
     try:
         # Step 1: Load the dataset
-        dataset_manager = Data_Set_Manager(DATA_FILE_ANOMALY)
+        dataset_manager = Data_Set_Manager(ANOMALY_DATASET_FILE)
         dataset = dataset_manager.process_dataset()
+
+        dataset_manager_2 = Data_Set_Manager(ANOMALY_DATA_FRAME_FILE)
+        dataset_2 = dataset_manager_2.process_dataset()
 
         if dataset.empty:
             return jsonify({'error': 'The dataset is empty or could not be loaded'}), 500
@@ -205,14 +209,12 @@ def detect_dataset_anomalies():
             return jsonify({'error': "Required columns ('date', 'meantemp') are missing from the dataset"}), 500
 
         # Create DataFrame with necessary columns
-        df = dataset[['date', 'meantemp']]
+        df = dataset_2[['date', 'meantemp']]
         # print(df)
 
         # Step 3: Load algorithms configuration
-        print("loading algorithms")
         algorithms_to_use = load_algorithm_config()
-        print("algorithms loaded")
-        print(algorithms_to_use)
+       
 
         # Step 4: Initialize AnomalyDetectionManager
         anomaly_manager = AnomalyDetectionManager(algorithms_to_use)
@@ -242,11 +244,7 @@ def detect_dataset_anomalies():
       
       
       
-      
-      
-      
-      
-      
+
       
       
       
