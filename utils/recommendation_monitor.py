@@ -12,7 +12,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'anomaly_detection'))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DATA_FILE_RECOMMENDATION = os.path.join(BASE_DIR, "data", "logs", "sensor_data_recommendation.csv")
 
 BASE_URL = "http://127.0.0.1:5000/api/v1"
