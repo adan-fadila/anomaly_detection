@@ -25,6 +25,7 @@ def generate_anomalies(mean_temp, num_anomalies=1):
     print(f"anomalies: {anomalies}")
     return anomalies
 
+
 def train_model(df):
     logger.info("Training model on the dataset.")
 
@@ -69,11 +70,19 @@ def generate_predictions(model, start_date, days, seasonal_means):
         })
 
     # Introduce anomalies in the temperature
-    anomaly_indices = np.random.choice(len(new_data), 5, replace=False)
+    anomaly_indices = np.random.choice(len(new_data), 3, replace=False)
+    collective_anomaly_indices = np.random.choice(len(new_data)-10, 1, replace=False)
+    print(f"collective_anomaly_indices: {collective_anomaly_indices}")
+    collective_mean_temp = new_data[collective_anomaly_indices[0]]['meantemp']
+    for i in range(10):
+        new_data[collective_anomaly_indices[0]+i]['meantemp'] =collective_mean_temp
+    print("Future predictions generated successfully.")
     print(f"anomaly_indices: {anomaly_indices}")
     for idx in anomaly_indices:
         new_data[idx]['meantemp'] = generate_anomalies(new_data[idx]['meantemp'], num_anomalies=1)[0]
 
+
+    
     logger.info("Future predictions generated successfully.")
     return pd.DataFrame(new_data)
 

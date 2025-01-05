@@ -5,10 +5,10 @@ from flask import Blueprint, request, jsonify
 from managers.anomaly_manager import AnomalyDetectionManager
 from utils.data_manager import Data_Set_Manager
 from algorithms.recommendations.bayesian import BayesianRecommendation
-
+import base64
+from config.constant import POINTWISE, COLLECTIVE
 # Determine project root directory and dataset path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-print(BASE_DIR)
 ANOMALY_DATA_FRAME_FILE = os.path.join(BASE_DIR, 'data', 'logs', 'sensor_data_anomaly.csv')
 ANOMALY_DATASET_FILE = os.path.join(BASE_DIR, 'data', 'csv', 'DailyDelhiClimateTrain.csv')
 DATA_FILE_RECOMMENDATION = os.path.join(BASE_DIR, 'data', 'logs', 'sensor_data_recommendation.csv')
@@ -20,20 +20,36 @@ anomaly_detection_bp = Blueprint('anomaly_detection', __name__)
 recommendation_bp = Blueprint('recommendation', __name__)
 
 # Utility function: Load algorithm configuration
-def load_algorithm_config(config_file=CONFIG_FILE):
-    """
-    Load the algorithm configuration from a JSON file.
-    Returns a list of algorithms to use or defaults to ["stl"].
-    """
-    try:
-        with open(config_file, 'r') as f:
-            config = json.load(f)
-            list_= config.get("algorithms")
-        return list_ 
-    except FileNotFoundError:
-        return ValueError(f"File Not Found Error : {e}")
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in configuration file: {e}")
+# def load_algorithm_config(config_file=CONFIG_FILE):
+#     """
+#     Load the algorithm configuration from a JSON file.
+#     Returns a list of algorithms to use or defaults to ["stl"].
+#     """
+#     try:
+#         with open(config_file, 'r') as f:
+#             config = json.load(f)
+#             list_= config.get("algorithms")
+#         return list_ 
+#     except FileNotFoundError:
+#         return ValueError(f"File Not Found Error : {e}")
+#     except json.JSONDecodeError as e:
+#         raise ValueError(f"Invalid JSON in configuration file: {e}")
+    
+
+# def load_collective_algorithm_config(config_file=CONFIG_FILE):
+#     """
+#     Load the algorithm configuration from a JSON file.
+#     Returns a list of algorithms to use or defaults to ["stl"].
+#     """
+#     try:
+#         with open(config_file, 'r') as f:
+#             config = json.load(f)
+#             list_= config.get("collective_algorithms")
+#         return list_ 
+#     except FileNotFoundError:
+#         return ValueError(f"File Not Found Error : {e}")
+#     except json.JSONDecodeError as e:
+#         raise ValueError(f"Invalid JSON in configuration file: {e}")
 
 
 
@@ -114,14 +130,13 @@ def detect_anomalies():
             return jsonify({'error': 'No valid sensor values provided'}), 400
 
         # Step 4: Initialize AnomalyDetectionManager
-        algorithms_to_use = load_algorithm_config()
-        anomaly_manager = AnomalyDetectionManager(algorithms_to_use)
+        anomaly_manager = AnomalyDetectionManager()
         # Step 5: Load dataset
         dataset_manager = Data_Set_Manager(ANOMALY_DATA_FRAME_FILE)
         dataset = dataset_manager.process_dataset()
 
         # Step 6: Perform anomaly detection
-        result = anomaly_manager.detect_anomalies(dfs, dataset)
+        result = anomaly_manager.detect_anomalies(dfs, dataset,POINTWISE)
 
         # Step 7: Filter anomalies
         anomalies = result[result['is_anomaly'] == True]
@@ -203,36 +218,32 @@ def detect_dataset_anomalies():
         if dataset.empty:
             return jsonify({'error': 'The dataset is empty or could not be loaded'}), 500
 
-        # Step 2: Prepare DataFrame for anomaly detection
         # Use 'date' and 'meantemp' columns directly
         if 'date' not in dataset.columns or 'meantemp' not in dataset.columns:
             return jsonify({'error': "Required columns ('date', 'meantemp') are missing from the dataset"}), 500
 
         # Create DataFrame with necessary columns
         df = dataset_2[['date', 'meantemp']]
-        # print(df)
-
-        # Step 3: Load algorithms configuration
-        algorithms_to_use = load_algorithm_config()
-       
-
-        # Step 4: Initialize AnomalyDetectionManager
-        anomaly_manager = AnomalyDetectionManager(algorithms_to_use)
-
-        # Step 5: Perform anomaly detection
-        result = anomaly_manager.detect_anomalies(df, dataset)
-
-        # Step 6: Filter anomalies
-        anomalies = result[result['is_anomaly'] == True]
-        print(anomalies)
+    
+        anomaly_manager = AnomalyDetectionManager()
+     
+        anomaly_result,plot_image = anomaly_manager.detect_anomalies(df, dataset,POINTWISE)
+        coll_anomaly,coll_plot = anomaly_manager.detect_anomalies(df, dataset,COLLECTIVE)
+        anomalies = anomaly_result[anomaly_result['is_anomaly'] == True]
         
         anomalies['date'] = anomalies['date'].apply(lambda x: x if isinstance(x, str) else x.strftime('%Y-%m-%d'))
+        plot_image_base64 = base64.b64encode(plot_image.getvalue()).decode('utf-8')
+        coll_plot_base64 = base64.b64encode(coll_plot.getvalue()).decode('utf-8')
+# Prepare response with anomalies and plot image
+        response = {
+            'response_anomaly':{
+                'anomalies': anomalies.to_dict(orient='records'),
+                'plot_image': plot_image_base64,  # Sending the base64-encoded image
+            },
+            'response_collective':{'collective_plot': coll_plot_base64}
+        }
 
-
-        # Step 7: Prepare and send response
-        response = {'anomalies': anomalies.to_dict(orient='records')}
         return jsonify(response), 200
-
     except Exception as e:
         # Handle unexpected errors gracefully
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500

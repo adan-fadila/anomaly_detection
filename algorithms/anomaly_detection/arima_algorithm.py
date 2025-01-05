@@ -60,5 +60,6 @@ class ARIMAAlgorithm(AnomalyDetectionAlgorithm):
                 historical_data.append(new_point)
         anomalies_df = pd.DataFrame(anomalies)
         anomalies_df.reset_index(drop=True, inplace=True)
+        print(f"ARIMA:Anomalies DataFrame: {anomalies_df}")
         # print(anomalies_df)
         return anomalies_df

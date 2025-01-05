@@ -5,7 +5,7 @@ import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 import threading
 import time
-
+import json
 
 job_lock = threading.Lock()
 
@@ -23,7 +23,7 @@ BASE_URL = "http://127.0.0.1:5000/api/v1"
 NODE_BASE_URL = "http://127.0.0.1:8001"
 DETECT_ANOMALIES_ENDPOINT = "/anomaly_detection/detect_dataset_anomalies"
 NODE_ANOMALY_RESPONSE_ENDPOINT = "/anomaly_response"
-
+NODE_COLL_ANOMALY_RESPONSE_ENDPOINT = "/coll_anomaly_response"
 last_modified_time_anomaly = None
 
 
@@ -63,8 +63,12 @@ def check_anomaly_logs():
             try:
                 response = requests.get(f"{BASE_URL}{DETECT_ANOMALIES_ENDPOINT}")
                 if response.status_code == 200:
+                    data = response.json()
+                    anomaly= data['response_anomaly']# Base64 encoded string
+                    collective_plot = data['response_collective']  # Base64 encoded string
+                    send_to_node(f"{NODE_BASE_URL}{NODE_ANOMALY_RESPONSE_ENDPOINT}", anomaly)
+                    send_to_node(f"{NODE_BASE_URL}{NODE_COLL_ANOMALY_RESPONSE_ENDPOINT}", collective_plot)
                     logger.info("Anomaly detection triggered successfully.")
-                    send_to_node(f"{NODE_BASE_URL}{NODE_ANOMALY_RESPONSE_ENDPOINT}", response.json())
                 else:
                     logger.error(f"Failed to trigger anomaly detection: {response.status_code}")
             except Exception as e:

@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 import pandas as pd
+import numpy as np
+from scipy.stats import kurtosis, skew
 
 class AnomalyDetectionAlgorithm(ABC):
     @abstractmethod
@@ -17,6 +19,20 @@ class AnomalyDetectionAlgorithm(ABC):
         :return: DataFrame with anomalies detected (e.g., with anomaly scores)
         """
         pass
+    @staticmethod
+    def compute_features(window):
+        """
+        Detect anomalies in the given dataframe.
+        
+        :param df: DataFrame containing the time series data
+        :param dataset:
+        :return: DataFrame with anomalies detected (e.g., with anomaly scores)
+        """
+        mean_val = np.mean(window)
+        std_val = np.std(window)
+        skew_val = skew(window)
+        kurt_val = kurtosis(window)
+        return [mean_val, std_val, skew_val, kurt_val]
     @abstractmethod
     def process_data(self,dataset):
         """
