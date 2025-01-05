@@ -6,10 +6,10 @@ from pgmpy.inference import VariableElimination
 class BayesianRecommendation:
     def __init__(self, log_file):
         self.log_file = log_file
+        self.target_columns = ['timestamp', 'lights', 'fan', 'ac_status', 'ac_temperature', 'ac_mode', 'heater_switch', 'laundry_machine']
         self.data = self.parse_log_file()
         self.model = None
         self.inference = None
-        self.columns = self.data.columns
         self.prepare_data()
         self.create_bayesian_network()
         self.train_model()
@@ -19,20 +19,23 @@ class BayesianRecommendation:
         Parse the log file and convert it into a structured DataFrame.
         """
         data = pd.read_csv(self.log_file)
-        return data
+        return data[self.target_columns]
 
     def prepare_data(self):
         """Prepare the dataset for the Bayesian model."""
+        # Extract hour from timestamp
         self.data['hour'] = pd.to_datetime(self.data['timestamp']).dt.hour
-        
-        for column in self.data.columns:
+
+        # Process target columns except 'timestamp'
+        for column in self.target_columns:
             if column == 'timestamp':
                 continue
             if self.data[column].dtype == 'object':
                 self.data[column] = self.data[column].astype('category')
             elif self.data[column].dtype in ['float64', 'int64']:
                 self.data[column] = pd.to_numeric(self.data[column])
-        
+
+        # Drop the raw timestamp column
         self.data.drop(columns=['timestamp'], inplace=True)
 
     def create_bayesian_network(self):
