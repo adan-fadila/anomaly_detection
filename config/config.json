@@ -1,4 +1,0 @@
-{
-    "algorithms": ["stl", "arima","LSTM"],
-    "collective_algorithms": ["stl", "arima","dbscan"]
-}
