@@ -12,9 +12,9 @@ def create_app():
     # Initialize Swagger
     swagger = Swagger(app)
     
-    # # Start the feed monitor scheduler
-    # start_anomaly_monitor()
-    # start_recommendation_monitor()
+    # Start the feed monitor scheduler
+    start_anomaly_monitor()
+    start_recommendation_monitor()
 
 
     # Register Blueprints
