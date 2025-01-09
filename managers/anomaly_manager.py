@@ -137,9 +137,7 @@ class AnomalyDetectionManager:
         plt.xlabel("Date")
         plt.ylabel("meantemp")
         plt.legend()
-        # Save the plot to the specified path
-        plt.savefig("collective_anomalies.png")
-        print(f"Plot saved to collective_anomalies.png")
+ 
         
         # Close the plot to free memory
         buf = io.BytesIO()
