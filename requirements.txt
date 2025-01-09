@@ -1,0 +1,10 @@
+numpy
+pandas
+statsmodels
+scikit-learn
+pgmpy
+Flask
+apscheduler
+matplotlib
+tensorflow
+flasgger
