@@ -7,7 +7,7 @@ import logging
 class BayesianRecommendation:
     def __init__(self, log_file):
         self.log_file = log_file
-        self.target_columns = ['timestamp', 'lights', 'fan', 'ac_status', 'ac_temperature', 'ac_mode', 'heater_switch', 'laundry_machine']
+        self.target_columns = ['timestamp', 'lights', 'fan', 'ac_status',  'heater_switch', 'laundry_machine']
         self.data = self.parse_log_file()
         self.model = None
         self.inference = None

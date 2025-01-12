@@ -60,7 +60,7 @@ def check_recommendation_logs():
                 # Process the recommendations into a dictionary grouped by feature
                 processed_recommendations = {}
                 for rec in recommendations:
-                    feature = rec["feature"]
+                    feature = rec["device"]
                     if feature not in processed_recommendations:
                         processed_recommendations[feature] = []
                     processed_recommendations[feature].append({
