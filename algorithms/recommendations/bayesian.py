@@ -92,7 +92,7 @@ class BayesianRecommendation:
                 for value in grouped.columns:
                     peak_hour = grouped[value].idxmax()
                     recommendations.append({
-                        'feature': column,
+                        'device': column,
                         'recommendation': value,
                         'recommended_time': f'{peak_hour}:00 to {(peak_hour + 1) % 24}:00'
                     })
