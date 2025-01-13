@@ -7,6 +7,7 @@ from app.routes import recommendation_bp, anomaly_detection_bp
 from config.config import Config
 from utils.anomaly_monitor import start_anomaly_monitor
 from utils.recommendation_monitor import start_recommendation_monitor
+from utils.monitor import start_monitor
 
 def create_app():
     app = Flask(__name__)
@@ -16,8 +17,9 @@ def create_app():
     swagger = Swagger(app)
     
     # Start the feed monitor scheduler
-    start_anomaly_monitor()
-    start_recommendation_monitor()
+    # start_anomaly_monitor()
+    # start_recommendation_monitor()
+    start_monitor()
 
     # Register Blueprints
     app.register_blueprint(recommendation_bp, url_prefix='/api/v1/recommendation')

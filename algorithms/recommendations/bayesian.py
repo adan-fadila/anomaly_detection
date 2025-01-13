@@ -19,17 +19,17 @@ class BayesianRecommendation:
         """
         Parse the log file and convert it into a structured DataFrame.
         """
-        print("Parsing log file...")
+        # print("Parsing log file...")
         data = pd.read_csv(self.log_file)
-        print("Parsed data head:\n", data.head())
+        # print("Parsed data head:\n", data.head())
         return data[self.target_columns]
 
     def prepare_data(self):
         """Prepare the dataset for the Bayesian model."""
-        print("Preparing data...")
+        # print("Preparing data...")
         # Extract hour from timestamp
         self.data['hour'] = pd.to_datetime(self.data['timestamp']).dt.hour
-        print("Extracted 'hour' from 'timestamp'. Example:\n", self.data[['timestamp', 'hour']].head())
+        # print("Extracted 'hour' from 'timestamp'. Example:\n", self.data[['timestamp', 'hour']].head())
 
         # Process target columns except 'timestamp'
         for column in self.target_columns:
@@ -38,7 +38,7 @@ class BayesianRecommendation:
             # Convert string columns to categorical
             if self.data[column].dtype == 'object':
                 self.data[column] = self.data[column].astype('category')
-                print(f"Converted column '{column}' to categorical.")
+                # print(f"Converted column '{column}' to categorical.")
 
             # Handle ac_temperature as a special case
             if column == 'ac_temperature':
@@ -47,13 +47,13 @@ class BayesianRecommendation:
                     q=5,
                     labels=['Very Low', 'Low', 'Medium', 'High', 'Very High']
                 ).astype('category')
-                print(f"Binned 'ac_temperature' into categories:\n{self.data[column].head()}")
+                # print(f"Binned 'ac_temperature' into categories:\n{self.data[column].head()}")
                 
                 
 
         # Drop the raw timestamp column because it is no longer needed
         self.data.drop(columns=['timestamp'], inplace=True)
-        print("Dropped 'timestamp'. Data prepared. Head of the dataset:\n", self.data.head())
+        # print("Dropped 'timestamp'. Data prepared. Head of the dataset:\n", self.data.head())
 
     def create_bayesian_network(self):
         """Define the structure of the Bayesian Network dynamically."""
@@ -63,16 +63,16 @@ class BayesianRecommendation:
         for column in columns:
             edges.append(('hour', column))
         self.model = BayesianNetwork(edges)
-        print("Bayesian Network structure created with edges:\n", edges)
+        # print("Bayesian Network structure created with edges:\n", edges)
 
     def train_model(self):
         """Train the Bayesian Network using the data."""
         print("Training Bayesian Network model...")
         self.model.fit(self.data, estimator=BayesianEstimator, prior_type="BDeu")
         print("Model training complete.")
-        print("Model CPDs:")
-        for cpd in self.model.get_cpds():
-            print(cpd)
+        # print("Model CPDs:")
+        # for cpd in self.model.get_cpds():
+        #     print(cpd)
         self.inference = VariableElimination(self.model)
         print("Inference engine initialized.")
 
