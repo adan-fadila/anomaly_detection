@@ -2,7 +2,6 @@ import os
 import logging
 import requests
 import base64
-import threading
 
 
 from threading import Lock
