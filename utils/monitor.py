@@ -3,8 +3,6 @@ import logging
 import requests
 import base64
 
-
-from threading import Lock
 from apscheduler.schedulers.background import BackgroundScheduler
 from utils.data_manager import Data_Set_Manager
 from managers.anomaly_manager import AnomalyDetectionManager
@@ -40,7 +38,6 @@ last_recommendations = None
 
 
 # Create a global threading lock
-monitor_lock = Lock()
 
 def send_to_node(api_url, data):
     try:
