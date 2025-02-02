@@ -5,9 +5,7 @@ from flask import Flask
 from flasgger import Swagger
 from app.routes import recommendation_bp, anomaly_detection_bp 
 from config.config import Config
-from utils.anomaly_monitor import start_anomaly_monitor
-from utils.recommendation_monitor import start_recommendation_monitor
-from utils.monitor import start_monitor
+from utils.monitor import Monitor
 
 def create_app():
     app = Flask(__name__)
@@ -16,13 +14,13 @@ def create_app():
     # Initialize Swagger
     swagger = Swagger(app)
     
-    # Start the feed monitor scheduler
-    # start_anomaly_monitor()
-    # start_recommendation_monitor()
-    start_monitor()
+    # Initialize and start the unified monitor
+    monitor = Monitor()
+    monitor.start_monitor()
 
     # Register Blueprints
     app.register_blueprint(recommendation_bp, url_prefix='/api/v1/recommendation')
     app.register_blueprint(anomaly_detection_bp, url_prefix='/api/v1/anomaly_detection')
 
     return app
+
