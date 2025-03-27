@@ -1,4 +1,11 @@
 {
-    "algorithms": ["stl", "arima","LSTM"],
-    "collective_algorithms": ["stl", "arima","dbscan"]
+    "anomaly":
+    {
+        "living_room":
+        {
+            "pointwise":{"name":"living room pointwise anomaly"},
+            "seasonality":{"name":"living room seasonality anomaly"},
+            "trend":{"name":"living room trend anomaly"}
+        }
+    }
 }
