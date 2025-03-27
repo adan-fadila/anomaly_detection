@@ -334,3 +334,62 @@ def recommend_rules():
         return jsonify({"error": "Invalid data provided for recommendations.", "details": str(e)}), 400
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred.", "details": str(e)}), 500
+
+
+
+############################################################################################################
+@anomaly_detection_bp.route('/anomalies', methods=['GET'])
+def get_anomaly_data():
+    """
+    Returns the anomaly configuration structure from config/config.json.
+    ---
+    tags:
+      - Anomaly Detection
+    responses:
+      200:
+        description: Successfully retrieved anomaly configuration
+        schema:
+          type: object
+          properties:
+            anomaly:
+              type: object
+              description: Anomaly configuration for different sensors
+      404:
+        description: Config file not found
+      500:
+        description: Internal server error
+    """
+    try:
+        # Get the path to the config file using the global CONFIG_FILE constant
+        if not os.path.exists(CONFIG_FILE):
+            return jsonify({
+                'success': False,
+                'error': 'Config file not found'
+            }), 404
+
+        # Read and validate the JSON file
+        with open(CONFIG_FILE, 'r') as config_file:
+            config_data = json.load(config_file)
+            
+        if 'anomaly' not in config_data:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid config structure - missing anomaly configuration'
+            }), 500
+
+        return jsonify({
+            'success': True,
+            'data': config_data['anomaly']
+        })
+
+    except json.JSONDecodeError:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid JSON format in config file'
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Unexpected error: {str(e)}'
+        }), 500

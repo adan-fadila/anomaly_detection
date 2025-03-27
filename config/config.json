@@ -1,11 +1,27 @@
 {
-    "anomaly":
-    {
-        "living_room":
-        {
-            "pointwise":{"name":"living room pointwise anomaly"},
-            "seasonality":{"name":"living room seasonality anomaly"},
-            "trend":{"name":"living room trend anomaly"}
+    "anomaly": {
+        "living_room_temperature": {
+            "pointwise": {
+                "name": "living room temperature pointwise anomaly"
+            },
+            "seasonality": {
+                "name": "living room temperature seasonality anomaly"
+            },
+            "trend": {
+                "name": "living room temperature trend anomaly"
+            }
+        },
+
+        "living_room_humidity": {
+                "pointwise": {
+                    "name": "living room humidity pointwise anomaly"
+                },
+                "seasonality": {
+                    "name": "living room humidity seasonality anomaly"
+                },
+                "trend": {
+                    "name": "living room humidity trend anomaly"
+                }
+            }
         }
     }
-}
