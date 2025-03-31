@@ -8,7 +8,6 @@ class AnomalyDetectionAlgorithm(ABC):
     def __init__(self):
         self.feature = 'meantemp'
         self.name = self.__class__.__name__  # Automatically set the name to the class name
-
     @abstractmethod
     def detect_anomalies(self, df,dataset):
         """
@@ -19,8 +18,8 @@ class AnomalyDetectionAlgorithm(ABC):
         :return: DataFrame with anomalies detected (e.g., with anomaly scores)
         """
         pass
-    @staticmethod
-    def compute_features(window):
+    
+    def compute_features(self,window):
         """
         Detect anomalies in the given dataframe.
         
@@ -28,11 +27,7 @@ class AnomalyDetectionAlgorithm(ABC):
         :param dataset:
         :return: DataFrame with anomalies detected (e.g., with anomaly scores)
         """
-        mean_val = np.mean(window)
-        std_val = np.std(window)
-        skew_val = skew(window)
-        kurt_val = kurtosis(window)
-        return [mean_val, std_val, skew_val, kurt_val]
+        return window
     @abstractmethod
     def process_data(self,dataset):
         """

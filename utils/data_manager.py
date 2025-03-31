@@ -22,7 +22,7 @@ class Data_Set_Manager:
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
 
-    def process_dataset(self):
+    def process_dataset(self,feature='meantemp'):
         """
         Process the dataset by selecting relevant columns and preparing it.
         """
@@ -31,7 +31,7 @@ class Data_Set_Manager:
             return None
 
         try:
-            meantemp_data = self.data[['date', 'meantemp']]
+            meantemp_data = self.data[['date', feature]].copy()
             meantemp_data['date'] = pd.to_datetime(meantemp_data['date'])
             meantemp_data['days'] = (meantemp_data['date'] - meantemp_data['date'].min()).dt.days
             return meantemp_data
