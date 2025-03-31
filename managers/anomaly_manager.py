@@ -243,7 +243,7 @@ class AnomalyDetectionManager:
         combined_anomalies.reset_index(inplace=True)
         plot = self._plot_anomalies(df, combined_anomalies, dataset)
         print(combined_anomalies)
-        return combined_anomalies
+        return combined_anomalies,plot
 
 
     def detect_coll_anomalies(self, len_df,dataset,selected_algorithms,df,anomaly_type,feature):

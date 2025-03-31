@@ -87,7 +87,6 @@ class AnomalyHandler:
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
             elif(anomaly_type == SEASONALITY):
                 anomalies = anomaly_result
-                anomalies['date'] = anomalies['date'].apply(lambda x: x if isinstance(x, str) else x.strftime('%Y-%m-%d'))
 
                 # Encode plots to Base64
                 plot_image_base64 = base64.b64encode(plot_image.getvalue()).decode('utf-8')
@@ -100,7 +99,6 @@ class AnomalyHandler:
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
             elif(anomaly_type == TREND):
                 anomalies = anomaly_result
-                anomalies['date'] = anomalies['date'].apply(lambda x: x if isinstance(x, str) else x.strftime('%Y-%m-%d'))
 
                 # Encode plots to Base64
                 plot_image_base64 = base64.b64encode(plot_image.getvalue()).decode('utf-8')
