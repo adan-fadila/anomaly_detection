@@ -10,7 +10,7 @@ class ARIMAAlgorithm(AnomalyDetectionAlgorithm):
     def __init__(self):
         super().__init__()
         self.pdq= (1,1,1)
-        self.threshold = 3
+        self.threshold_factor = 4
         self.windowSize = 30
         pass
 
@@ -52,7 +52,7 @@ class ARIMAAlgorithm(AnomalyDetectionAlgorithm):
             # print(predicted_value)
             residual = new_point - predicted_value
             
-            if abs(residual) > self.threshold * np.std(window_data):
+            if abs(residual) > self.threshold_factor * np.std(window_data):
                 anomalies.append({'date': row['date'], self.feature: new_point})
                 historical_data.append(predicted_value)
            

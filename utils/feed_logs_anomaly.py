@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
-
+import sys
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -47,7 +47,39 @@ def train_model(df):
     logger.info("Model training completed.")
     return model
 
-def generate_predictions(model, start_date, days, seasonal_means):
+def generate_predictions_season(model, start_date, days, seasonal_means):
+    logger.info("Generating future predictions.")
+
+    new_dates = [start_date + timedelta(days=i) for i in range(1, days + 1)]
+    new_data = []
+
+    for new_date in new_dates:
+        day_of_year = new_date.timetuple().tm_yday
+        month = new_date.month
+
+        # Wrap the input in a DataFrame to include feature names
+        features = pd.DataFrame({'day_of_year': [day_of_year], 'month': [month]})
+        mean_temp = model.predict(features)[0]
+
+        new_data.append({
+            'date': new_date,
+            'meantemp': mean_temp,
+            'humidity': np.random.uniform(30, 90),
+            'wind_speed': np.random.uniform(0.5, 20),
+            'meanpressure': np.random.uniform(995, 1025)
+        })
+
+    # Introduce anomalies in the temperature
+    collective_anomaly_indices = np.random.choice(len(new_data)-40 -50, 1, replace=False)
+    print(f"collective_anomaly_indices: {collective_anomaly_indices}")
+    collective_mean_temp = new_data[collective_anomaly_indices[0]]['meantemp']
+    for i in range(40):
+        new_data[collective_anomaly_indices[0]+50+i]['meantemp'] = collective_mean_temp - 10
+        print(collective_anomaly_indices[0]+50+i)
+
+    return pd.DataFrame(new_data)
+
+def generate_predictions_trend(model, start_date, days, seasonal_means):
     logger.info("Generating future predictions.")
 
     new_dates = [start_date + timedelta(days=i) for i in range(1, days + 1)]
@@ -71,23 +103,49 @@ def generate_predictions(model, start_date, days, seasonal_means):
 
     # Introduce anomalies in the temperature
     anomaly_indices = np.random.choice(len(new_data), 3, replace=False)
-    collective_anomaly_indices = np.random.choice(len(new_data)-10, 1, replace=False)
+    collective_anomaly_indices = np.random.choice(len(new_data)-350, 1, replace=False)
     print(f"collective_anomaly_indices: {collective_anomaly_indices}")
     collective_mean_temp = new_data[collective_anomaly_indices[0]]['meantemp']
-    for i in range(10):
-        new_data[collective_anomaly_indices[0]+i]['meantemp'] =collective_mean_temp
-    print("Future predictions generated successfully.")
-    print(f"anomaly_indices: {anomaly_indices}")
-    for idx in anomaly_indices:
-        new_data[idx]['meantemp'] = generate_anomalies(new_data[idx]['meantemp'], num_anomalies=1)[0]
+    for i in range(300):
+        new_data[collective_anomaly_indices[0]+i]['meantemp'] += 30
+        print(collective_anomaly_indices[0]+i)
 
-
-    
-    logger.info("Future predictions generated successfully.")
+ 
     return pd.DataFrame(new_data)
 
 
-def main():
+
+def generate_predictions(model, start_date, days, seasonal_means):
+    logger.info("Generating future predictions.")
+
+    new_dates = [start_date + timedelta(days=i) for i in range(1, days + 1)]
+    new_data = []
+
+    for new_date in new_dates:
+        day_of_year = new_date.timetuple().tm_yday
+        month = new_date.month
+
+        # Wrap the input in a DataFrame to include feature names
+        features = pd.DataFrame({'day_of_year': [day_of_year], 'month': [month]})
+        mean_temp = model.predict(features)[0]
+
+        new_data.append({
+            'date': new_date,
+            'meantemp': mean_temp,
+            'humidity': np.random.uniform(30, 90),
+            'wind_speed': np.random.uniform(0.5, 20),
+            'meanpressure': np.random.uniform(995, 1025)
+        })
+
+    # Introduce anomalies in the temperature
+    anomaly_indices = np.random.choice(len(new_data), 4, replace=False)
+    
+    for index in anomaly_indices:
+        new_data[index]['meantemp'] += 15
+        print(index)
+
+    return pd.DataFrame(new_data)
+def main(anomaly_type):
     try:
         # Read existing data
         
@@ -103,7 +161,12 @@ def main():
 
         # Generate 30 new data points
         seasonal_means = df.groupby('month')['meantemp'].mean()
-        new_df = generate_predictions(model, last_date, 30, seasonal_means)
+        if anomaly_type == 'season':
+            new_df = generate_predictions_season(model, last_date, 200, seasonal_means)
+        elif anomaly_type == 'trend':
+            new_df = generate_predictions_trend(model, last_date, 400, seasonal_means)
+        elif anomaly_type == 'point':
+            new_df = generate_predictions(model, last_date, 30, seasonal_means)
         # Append new data to the DataFrame
         # combined_df = pd.concat([df, new_df], ignore_index=True)
 
@@ -116,4 +179,4 @@ def main():
         logger.error(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])

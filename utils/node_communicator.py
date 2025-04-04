@@ -19,3 +19,4 @@ class NodeCommunicator:
         except Exception as e:
             logger.error(f"Error sending data to {endpoint_key} endpoint: {e}")
             raise
+    
