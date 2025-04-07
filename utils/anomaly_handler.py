@@ -35,7 +35,9 @@ class AnomalyHandler:
             anomaly_result,plot_image = anomaly_manager.detect_anomalies(df, df, anomaly_type,feature)
             if len(anomaly_result) == 0:
                 return None
-
+            anomaly_result=anomaly_result.to_dict(orient="records")
+            print("Anomaly result:", anomaly_result)
+            
             if(anomaly_type == POINTWISE):
                 anomalies = anomaly_result
                 # anomalies['date'] = anomalies['date'].apply(lambda x: x if isinstance(x, str) else x.strftime('%Y-%m-%d'))
@@ -49,6 +51,10 @@ class AnomalyHandler:
                     'plot_image': plot_image_base64,
                     'name': "living room temperature pointwise anomaly"
                 }
+                for row in anomaly_response['anomalies']:
+                    for k, v in row.items():
+                        if isinstance(v, pd.Timestamp):
+                            row[k] = str(v)
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
             elif(anomaly_type == SEASONALITY):
                 anomalies = anomaly_result
@@ -63,6 +69,10 @@ class AnomalyHandler:
                     'plot_image': plot_image_base64,
                     'name': "living room temperature seasonality anomaly"
                 }
+                for row in anomaly_response['anomalies']:
+                    for k, v in row.items():
+                        if isinstance(v, pd.Timestamp):
+                            row[k] = str(v)
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
             elif(anomaly_type == TREND):
                 anomalies = anomaly_result
@@ -73,9 +83,13 @@ class AnomalyHandler:
                 # Prepare response data
                 anomaly_response = {
                     'anomalies': anomalies,
-                     'plot_image': plot_image_base64,
-                     'name': "living room temperature trend anomaly"
+                    'plot_image': plot_image_base64,
+                    'name': "living room temperature trend anomaly"
                 }
+                for row in anomaly_response['anomalies']:
+                    for k, v in row.items():
+                        if isinstance(v, pd.Timestamp):
+                            row[k] = str(v)
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
             
 
