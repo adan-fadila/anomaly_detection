@@ -16,11 +16,11 @@ class STLAlgorithm(AnomalyDetectionAlgorithm):
     def detect_anomalies(self, df,dataset):
 
 
-        dataset = pd.concat([dataset, df], ignore_index=True)
-        dataset.sort_values(by='date', inplace=True)
-        dataset.reset_index(drop=True, inplace=True)
+        # dataset = pd.concat([dataset, df], ignore_index=True)
+        # dataset.sort_values(by='date', inplace=True)
+        # dataset.reset_index(drop=True, inplace=True)
         data = self.process_data(dataset)
-        stl = STL(data, period=365)
+        stl = STL(data, period=9)
         result = stl.fit()
         residuals = result.resid
         window_resid = residuals[-self.window_size:]

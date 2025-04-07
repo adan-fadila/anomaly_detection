@@ -6,7 +6,6 @@ from scipy.stats import kurtosis, skew
 class AnomalyDetectionAlgorithm(ABC):
     @abstractmethod
     def __init__(self):
-        self.feature = 'meantemp'
         self.name = self.__class__.__name__  # Automatically set the name to the class name
     @abstractmethod
     def detect_anomalies(self, df,dataset):

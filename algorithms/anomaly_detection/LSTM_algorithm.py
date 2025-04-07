@@ -210,82 +210,82 @@ class LSTMAlgorithm(AnomalyDetectionAlgorithm):
             y.append(data[i + seq_length])
         return np.array(X), np.array(y)
     
-    def detect_pointwise_anomalies(self, df, dataset, data_scaled):
-        """Detect pointwise anomalies in the data"""
-        print(f"Detecting pointwise anomalies...")
-        not_processed_df = df
+    # def detect_pointwise_anomalies(self, df,data_scaled):
+    #     """Detect pointwise anomalies in the data"""
+    #     print(f"Detecting pointwise anomalies...")
+    #     not_processed_df = df
         
-        try:
-            # Create sequences from dataset for context
-            dataset_seq_len = min(len(dataset), self.seq_length)
-            context_data = data_scaled[:dataset_seq_len]
+    #     try:
+    #         # Create sequences from dataset for context
+    #         dataset_seq_len = min(len(dataset), self.seq_length)
+    #         context_data = data_scaled[:dataset_seq_len]
             
-            # Combine dataset context with data for predictions
-            combined_data = np.concatenate((context_data, data_scaled))
+    #         # Combine dataset context with data for predictions
+    #         combined_data = np.concatenate((context_data, data_scaled))
             
-            # Create window for prediction
-            current_window = combined_data[:self.seq_length].reshape(1, self.seq_length, 1)
+    #         # Create window for prediction
+    #         current_window = combined_data[:self.seq_length].reshape(1, self.seq_length, 1)
             
-            # List to store predictions
-            predictions = []
+    #         # List to store predictions
+    #         predictions = []
             
-            # Sliding window approach for prediction
-            for i in range(len(data_scaled) - self.seq_length + 1):
-                # Predict the next value using the current window
-                pred = self.model.predict(current_window, verbose=0)
+    #         # Sliding window approach for prediction
+    #         for i in range(len(data_scaled) - self.seq_length + 1):
+    #             # Predict the next value using the current window
+    #             pred = self.model.predict(current_window, verbose=0)
                 
-                # Append the predicted value
-                predictions.append(pred[0, 0])
+    #             # Append the predicted value
+    #             predictions.append(pred[0, 0])
                 
-                # Slide the window by one step
-                if i + self.seq_length < len(data_scaled):
-                    current_window = np.roll(current_window, shift=-1, axis=1)
-                    current_window[0, -1, 0] = data_scaled[i + self.seq_length]
+    #             # Slide the window by one step
+    #             if i + self.seq_length < len(data_scaled):
+    #                 current_window = np.roll(current_window, shift=-1, axis=1)
+    #                 current_window[0, -1, 0] = data_scaled[i + self.seq_length]
             
-            # True values after the window_size index
-            y_true = data_scaled[self.seq_length - 1:]
+    #         # True values after the window_size index
+    #         y_true = data_scaled[self.seq_length - 1:]
             
-            # Ensure predictions are the same length as y_true
-            predictions = np.array(predictions)
+    #         # Ensure predictions are the same length as y_true
+    #         predictions = np.array(predictions)
             
-            # Compute errors (absolute differences between actual and predicted values)
-            if len(predictions) == len(y_true):
-                errors = np.abs(y_true - predictions)
-            else:
-                print(f"Shape mismatch between predictions and y_true: {len(predictions)} vs {len(y_true)}")
-                return pd.DataFrame(columns=['date', self.feature])
+    #         # Compute errors (absolute differences between actual and predicted values)
+    #         if len(predictions) == len(y_true):
+    #             errors = np.abs(y_true - predictions)
+    #         else:
+    #             print(f"Shape mismatch between predictions and y_true: {len(predictions)} vs {len(y_true)}")
+    #             return pd.DataFrame(columns=['date', self.feature])
             
-            # Calculate threshold
-            mean_error = np.mean(errors)
-            std_error = np.std(errors)
-            threshold = mean_error + self.threshold_factor * std_error
-            print(f"Threshold: {threshold}")
+    #         # Calculate threshold
+    #         mean_error = np.mean(errors)
+    #         std_error = np.std(errors)
+    #         threshold = mean_error + self.threshold_factor * std_error
+    #         print(f"Threshold: {threshold}")
             
-            # Identify anomalies
-            anomalies = errors > threshold
-            print(f"Anomalies identified: {np.sum(anomalies)} anomalies found.")
+    #         # Identify anomalies
+    #         anomalies = errors > threshold
+    #         print(f"Anomalies identified: {np.sum(anomalies)} anomalies found.")
             
-            # Get indices of anomalies
-            anomaly_indices = np.where(anomalies)[0] + self.seq_length - 1
+    #         # Get indices of anomalies
+    #         anomaly_indices = np.where(anomalies)[0] + self.seq_length - 1
             
-            anomalies_list = []
-            for idx in anomaly_indices:
-                if 0 <= idx < len(not_processed_df):
-                    anomalies_list.append({
-                        'date': not_processed_df.iloc[idx]['date'],
-                        self.feature: not_processed_df.iloc[idx][self.feature],
-                    })
+    #         anomalies_list = []
+    #         for idx in anomaly_indices:
+    #             if 0 <= idx < len(not_processed_df):
+    #                 anomalies_list.append({
+    #                     'date': not_processed_df.iloc[idx]['date'],
+    #                     self.feature: not_processed_df.iloc[idx][self.feature],
+    #                 })
             
-            # Create DataFrame of anomalies
-            anomalies_df = pd.DataFrame(anomalies_list)
-            if not anomalies_list:
-                anomalies_df = pd.DataFrame(columns=['date', self.feature])
+    #         # Create DataFrame of anomalies
+    #         anomalies_df = pd.DataFrame(anomalies_list)
+    #         if not anomalies_list:
+    #             anomalies_df = pd.DataFrame(columns=['date', self.feature])
             
-        except Exception as e:
-            print(f"Error detecting pointwise anomalies: {e}")
-            anomalies_df = pd.DataFrame(columns=['date', self.feature])
+    #     except Exception as e:
+    #         print(f"Error detecting pointwise anomalies: {e}")
+    #         anomalies_df = pd.DataFrame(columns=['date', self.feature])
         
-        return anomalies_df
+    #     return anomalies_df
     
     def detect_collective_anomalies(self, df, dataset, is_seasonal=True):
         """Detect collective anomalies (seasonal) in the data"""

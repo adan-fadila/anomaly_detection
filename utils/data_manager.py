@@ -31,10 +31,8 @@ class Data_Set_Manager:
             return None
 
         try:
-            meantemp_data = self.data[['date', feature]].copy()
-            meantemp_data['date'] = pd.to_datetime(meantemp_data['date'])
-            meantemp_data['days'] = (meantemp_data['date'] - meantemp_data['date'].min()).dt.days
-            return meantemp_data
+            feature = self.data[feature].copy()
+            return feature
         except KeyError as e:
             print(f"Error: Missing required columns. Details: {e}")
         except Exception as e:

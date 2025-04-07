@@ -8,12 +8,12 @@ from config.constant import POINTWISE, COLLECTIVE,SEASONALITY,TREND,algorithms,S
 from core.base_anomaly import AnomalyDetectionAlgorithm
 import joblib
 class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
-    def __init__(self,  model_path, large_window_size, threshold,step_size):
+    def __init__(self,model_path, large_window_size, threshold,step_size,scaler_path):
         super().__init__()
         self.step_size = step_size
         self.window_size = large_window_size
         self.threshold = threshold
-        self.scaler = StandardScaler()
+        self.scaler = joblib.load(scaler_path)
 
         try:
             self.model = joblib.load(model_path)
@@ -31,7 +31,13 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
         
         for i in range(0, len(data_scaled) - self.window_size + 1, self.step_size):
             window = data_scaled[i:i + self.window_size]
-            features.append(window)
+            feat = [                              # raw window
+                np.mean(window),
+                np.std(window),
+                np.min(window),
+                np.max(window),
+            ]
+            features.append(feat)
             indices.append(i)
             
         return np.array(features), indices
@@ -56,26 +62,20 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
                 data = dataset[feature_col].values.reshape(-1, 1)
             else:
                 # If it's a NumPy array, directly reshape it
-                data = dataset.reshape(-1, 1)
+                data = dataset.values.reshape(-1, 1)
             
             # Normalize the data
-            data_scaled = self.scaler.fit_transform(data)
+            data_scaled = self.scaler.transform(data)
             
             # Extract the last 'df' records
 
-            target_data = data_scaled[-df:]
+            target_data = data_scaled
             
-            # Extract windows (features) for One-Class SVM
             features = []
-            for i in range(0, len(target_data) - self.window_size + 1, self.step_size):  
-                window = target_data[i:i + self.window_size].flatten()  # Flatten for One-Class SVM
-                features.append(window)
-
-            # If there is leftover data at the end, add the last window
-            if (len(target_data) - self.window_size) % self.step_size != 0:
-                last_window = target_data[-self.window_size:].flatten()
-                features.append(last_window)
-            
+          
+            features,ind = self.extract_raw_features_from_data(target_data)
+            print(f"features: {features}")
+            print(f"ind: {ind}")
             if len(features) == 0:
                 print("No features extracted. Data length may be less than window size.")
                 return []
@@ -87,60 +87,36 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
             
             # Get decision scores from the model
             features_array = np.array(features)
-            decision_scores = self.model.decision_function(features_array)
+            last_window_features = features_array[-1]
+
+# Reshape it to a 2D array with one row
+            last_window_features_2d = last_window_features.reshape(1, -1)
+
+            # Now pass the reshaped 2D array to the decision function
+            decision_scores = self.model.decision_function(last_window_features_2d)
             
             # Determine anomalies based on threshold
-            threshold =-(np.abs( (np.mean(decision_scores) +self.threshold*np.std(decision_scores))))
-
+            threshold =0
             print(f"threshold: {threshold}")
             
             collective_anomalies = []  # List to store anomaly intervals
             # Collective anomaly detection
             for i, score in enumerate(decision_scores):
-                start_idx = i * self.step_size
+                start_idx = ind[-1]
                 end_idx = min(start_idx +self.window_size, df)
                 if end_idx == df:
                     start_idx = df - self.window_size
                 
                 print(f"window score: {score}")
                 
-                if score <= threshold:  # One-Class SVM: lower scores indicate anomalies
-                    collective_anomalies.append({"start": start_idx, "end": end_idx})
+                # if score <= threshold:  # One-Class SVM: lower scores indicate anomalies
+                #     collective_anomalies.append({"start": start_idx, "end": end_idx})
             
-            print(collective_anomalies)
+            # print(collective_anomalies)
             
-            # Create visualization
-            plt.figure(figsize=(12, 6))
+         
             
-            # Plot the last 60 points or all points if less than 60
-            plot_length = min(len(target_data), len(dataset))
-            
-            if isinstance(dataset, pd.DataFrame):
-                plt.plot(range(plot_length), dataset[feature_col].values[-plot_length:], label="Dataset", color="blue")
-            else:
-                plt.plot(range(plot_length), dataset[-plot_length:], label="Dataset", color="blue")
-            
-            # Highlight anomalous regions
-            for anomaly in collective_anomalies:
-                start = anomaly["start"]
-                end = anomaly["end"]
-                if start < plot_length:
-                    plt.axvspan(max(0, plot_length - df + start), min(plot_length - 1, plot_length - df + end), 
-                            color='red', alpha=0.3, label='Anomaly')
-            
-            # Labels and title
-            plt.xlabel("Time")
-            plt.ylabel("Value")
-            plt.title("One-Class SVM Anomaly Detection")
-            plt.legend(handles=[
-                plt.Line2D([0], [0], color='blue', label='Dataset'),
-                plt.Rectangle((0, 0), 1, 1, color='red', alpha=0.3, label='Anomaly')
-            ])
-            
-            # Save the plot as PNG
-            
-            
-            return collective_anomalies
+            return score <= threshold
         
         except Exception as e:
             print(f"Error detecting collective anomalies: {e}")
@@ -173,6 +149,3 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
             return np.array(features), indices
         else:
             return np.array([]), []
-
-
-    
