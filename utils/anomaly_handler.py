@@ -137,7 +137,7 @@ class AnomalyHandler:
                 self.last_pointwise_line = current_line_count
 
 
-            if current_line_count - self.last_trend_line >= TREND_WINDOW_SIZE and current_line_count >= 3 * TREND_WINDOW_SIZE:
+            if current_line_count - self.last_trend_line >= 2 * TREND_WINDOW_SIZE and current_line_count >= 3 * TREND_WINDOW_SIZE:
                 logger.info(f"Found {current_line_count - self.last_trend_line} new lines. Running trend anomaly detection.")
                 # Pass only the new lines for trend detection
                 new_lines_for_trend = all_lines[-(2 * TREND_WINDOW_SIZE ):]
