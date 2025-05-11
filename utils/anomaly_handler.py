@@ -4,14 +4,14 @@ import io
 from .logger import logger
 from utils.data_manager import Data_Set_Manager
 from managers.anomaly_manager import AnomalyDetectionManager
-from config.constant import POINTWISE, COLLECTIVE,SEASONALITY,TREND,POINTWISE_WINDOW_SIZE,SEASONALITY_WINDOW_SIZE,TREND_WINDOW_SIZE,POINTWISE_STEP_SIZE,SEASONALITY_STEP_SIZE,TREND_STEP_SIZE
+from config.constant import POINTWISE, COLLECTIVE,SEASONALITY,TREND,POINTWISE_WINDOW_SIZE,SEASONALITY_WINDOW_SIZE,TREND_WINDOW_SIZE,POINTWISE_STEP_SIZE,SEASONALITY_STEP_SIZE,COLLECTIVE_STEP_SIZE,COLLECTIVE_WINDOW_SIZE,TREND_STEP_SIZE
 from .node_communicator import NodeCommunicator
 from config.constant import FEATEURES,COLUMNS
 import pandas as pd
 class AnomalyHandler:
     def __init__(self, base_dir):
         self.base_dir = base_dir
-        self.data_frame_file = os.path.join(base_dir, 'data', 'csv', 'log.csv')
+        self.data_frame_file = os.path.join(base_dir, 'SmartSchool-Server', 'logs', 'sensor_data.csv')
         self.node_communicator = NodeCommunicator()
         self.last_modified_time = None
 
@@ -35,13 +35,11 @@ class AnomalyHandler:
             anomaly_result,plot_image = anomaly_manager.detect_anomalies(df, df, anomaly_type,feature)
             if len(anomaly_result) == 0:
                 return None
-            # anomaly_result=anomaly_result.to_dict(orient="records")
             print("Anomaly result:", anomaly_result)
             
             if(anomaly_type == POINTWISE):
                 anomaly_result=anomaly_result.to_dict(orient="records")
                 anomalies = anomaly_result
-                # anomalies['date'] = anomalies['date'].apply(lambda x: x if isinstance(x, str) else x.strftime('%Y-%m-%d'))
 
                 # Encode plots to Base64
                 plot_image_base64 = base64.b64encode(plot_image.getvalue()).decode('utf-8')
@@ -85,6 +83,20 @@ class AnomalyHandler:
                 }
                
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
+            elif(anomaly_type == COLLECTIVE):
+                anomalies = anomaly_result
+
+                # Encode plots to Base64
+                plot_image_base64 = base64.b64encode(plot_image.getvalue()).decode('utf-8')
+
+                # Prepare response data
+                anomaly_response = {
+                    'anomalies': anomalies,
+                    'plot_image': plot_image_base64,
+                    'name': "living room temperature colective anomaly"
+                }
+               
+                self.node_communicator.send_to_node('anomaly', anomaly_response)
             
 
             return anomaly_response
@@ -105,6 +117,8 @@ class AnomalyHandler:
             self.last_trend_line = 0
         if not hasattr(self, 'last_seasonal_line'):
             self.last_seasonal_line = 0
+        if not hasattr(self, 'last_Col_line'):
+            self.last_Col_line = 0
         if not hasattr(self, 'last_pointwise_line'):
             self.last_pointwise_line = 0        
         if self.last_modified_time is None or current_modified_time > self.last_modified_time:
@@ -117,18 +131,6 @@ class AnomalyHandler:
             
             current_line_count = len(all_lines) - 1
 
-            # Check if we should run trend anomaly detection
-           
-            
-            # Check if we should run seasonal anomaly detection
-            if current_line_count - self.last_seasonal_line >= SEASONALITY_WINDOW_SIZE and current_line_count >= 2 * SEASONALITY_WINDOW_SIZE:
-                logger.info(f"Found {current_line_count + 1 - self.last_seasonal_line} new lines. Running seasonal anomaly detection.")
-                # Pass only the new lines for seasonal detection
-                new_lines_for_seasonal = all_lines[-(2 * SEASONALITY_WINDOW_SIZE):]
-                self.detect_for_features(new_lines_for_seasonal, SEASONALITY)
-                self.last_seasonal_line = current_line_count
-            
-            # For pointwise, we can run it on any new data
             if current_line_count - self.last_pointwise_line >=POINTWISE_STEP_SIZE and current_line_count > POINTWISE_WINDOW_SIZE:
                 print(f"Found {current_line_count - self.last_pointwise_line} new lines. Running pointwise anomaly detection.")
                 # Pass only the new lines for pointwise detection
@@ -136,19 +138,14 @@ class AnomalyHandler:
                 self.detect_for_features(new_lines_for_pointwise, POINTWISE)
                 self.last_pointwise_line = current_line_count
 
+            if current_line_count - self.last_Col_line >=COLLECTIVE_STEP_SIZE and current_line_count > 2*POINTWISE_WINDOW_SIZE:
+                print(f"Found {current_line_count - self.last_Col_line} new lines. Running collective anomaly detection.")
+                # Pass only the new lines for pointwise detection
+                new_lines_for_pointwise = all_lines[-2*(COLLECTIVE_WINDOW_SIZE):]
+                self.detect_for_features(new_lines_for_pointwise, COLLECTIVE)
+                self.last_Col_line = current_line_count
 
-            if current_line_count - self.last_trend_line >= 2 * TREND_WINDOW_SIZE and current_line_count >= 3 * TREND_WINDOW_SIZE:
-                logger.info(f"Found {current_line_count - self.last_trend_line} new lines. Running trend anomaly detection.")
-                # Pass only the new lines for trend detection
-                new_lines_for_trend = all_lines[-(2 * TREND_WINDOW_SIZE ):]
-                self.detect_for_features(new_lines_for_trend, TREND)    
-                self.last_trend_line = current_line_count
-            
-            # If no anomaly detection was run
-            # if (current_line_count - self.last_trend_line < 30 and 
-            #     current_line_count - self.last_seasonal_line < 20 and 
-            #     current_line_count <= self.last_pointwise_line):
-            #     logger.info("Not enough new data for any anomaly detection.")
+           
         else:
             logger.info("No new anomaly logs detected.")
 

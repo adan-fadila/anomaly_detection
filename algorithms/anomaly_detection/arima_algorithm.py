@@ -33,13 +33,11 @@ class ARIMAAlgorithm(AnomalyDetectionAlgorithm):
             pd.DataFrame: A copy of the DataFrame with an added 'is_anomaly' column.
         """
         data = self.process_data(df,feature=feature)
-        print(f"ARIMA:Data: {data}")
         if len(data) < self.window_size:
             raise ValueError("Not enough data for the specified window size.")
         
         anomalies = []
         # df = data.reset_index(drop=True)  # ensure index is clean and ordered
-        print(f"ARIMA:DataFrame: {df}")
         for i in range(self.window_size, len(df)):
             window_data = df[feature].iloc[i - self.window_size:i].tolist()
             new_point = df[feature].iloc[i]
@@ -60,5 +58,4 @@ class ARIMAAlgorithm(AnomalyDetectionAlgorithm):
 
         anomalies_df = pd.DataFrame(anomalies)
         anomalies_df.reset_index(drop=True, inplace=True)
-        print(f"ARIMA: Anomalies DataFrame: {anomalies_df}")
         return anomalies_df

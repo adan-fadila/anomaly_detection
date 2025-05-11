@@ -4,24 +4,67 @@
             "pointwise": {
                 "name": "living room temperature pointwise anomaly"
             },
-            "seasonality": {
-                "name": "living room temperature seasonality anomaly"
-            },
-            "trend": {
-                "name": "living room temperature trend anomaly"
-            }
-        },
-
-        "living_room_humidity": {
-                "pointwise": {
-                    "name": "living room humidity pointwise anomaly"
-                },
-                "seasonality": {
-                    "name": "living room humidity seasonality anomaly"
-                },
-                "trend": {
-                    "name": "living room humidity trend anomaly"
-                }
+            "collective": {
+                "name": "living room temperature collective anomaly"
             }
         }
+        },
+    "features": {
+    "temperature": {
+      "pointwise": {
+        "LSTM": {
+          "model_path": "algorithms/anomaly_detection/models_weights/lstm_weights.weights.h5",
+          "model": "POINTWISE_LSTM_model",
+          "seq_length": 10,
+          "threshold_factor": 0.6,
+          "scaler": "algorithms/anomaly_detection/models_weights/scaler_LSTM_POINT.pkl"
+        },
+        "arima":{}
+      },"collective": {
+        "LSTM": {
+          "model_path": "algorithms/anomaly_detection/models_weights/lstm_weights_COL.weights.h5",
+          "model": "COLLECTIVE_LSTM_model",
+          "seq_length": 20,
+          "threshold_factor": 0.7,
+          "scaler": "algorithms/anomaly_detection/models_weights/LSTM_COL_scaler.pkl"
+        },
+        "OCSVM":{
+          "model_path": "algorithms/anomaly_detection/models_weights/ocsvm_model.joblib",
+          "large_window_size": 20,
+          "threshold": 0,
+          "step_size": 18,
+          "scaler_path": "algorithms/anomaly_detection/models_weights/ocsvm_trend_scaler_model.pkl"
+        }
+          
+        } 
+      },
+          "motion": {
+      "pointwise": {
+        "LSTM": {
+          "model_path": "algorithms/anomaly_detection/models_weights/lstm_weights_motion_P1.weights.h5",
+          "model": "POINTWISE_LSTM_model",
+          "seq_length": 10,
+          "threshold_factor": 0.47,
+          "scaler": "algorithms/anomaly_detection/models_weights/scaler_motion_p.pkl"
+        },
+        "arima":{}
+      },"collective": {
+        "LSTM": {
+          "model_path": "algorithms/anomaly_detection/models_weights/lstm_weights_motion_COL.weights.h5",
+          "model": "COLLECTIVE_LSTM_model",
+          "seq_length": 20,
+          "threshold_factor": 0.4,
+          "scaler": "algorithms/anomaly_detection/models_weights/LSTM_COL_motion_scaler.pkl"
+        },
+        "OCSVM":{
+          "model_path": "algorithms/anomaly_detection/models_weights/ocsvm_motion_model.joblib",
+          "large_window_size": 20,
+          "threshold": 0,
+          "step_size": 18,
+          "scaler_path": "algorithms/anomaly_detection/models_weights/ocsvm_trend_scaler_model.pkl"
+        }
+          
+        } 
+      }
     }
+  }

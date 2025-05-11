@@ -3,17 +3,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from statsmodels.tsa.seasonal import STL
-
-from config.constant import POINTWISE, COLLECTIVE,SEASONALITY,TREND,algorithms,SEASONALITY_algorithms
+from scipy.stats import skew, kurtosis
+import os
 from core.base_anomaly import AnomalyDetectionAlgorithm
 import joblib
+DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
     def __init__(self,model_path, large_window_size, threshold,step_size,scaler_path):
         super().__init__()
         self.step_size = step_size
         self.window_size = large_window_size
         self.threshold = threshold
-        self.scaler = joblib.load(scaler_path)
+        scaler = os.path.join(DIR,scaler_path)
+        self.scaler = joblib.load(scaler)
 
         try:
             self.model = joblib.load(model_path)
@@ -22,7 +25,9 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
             print(f"Error loading One-Class SVM model: {e}")
             self.model = None
     def process_data(self, dataset):
-        return dataset[self.feature].values.reshape(-1, 1)
+        """Extract the target feature from the dataset"""
+        return dataset[self.feature]
+    
     
     def extract_raw_features_from_data(self, data_scaled):
         """Extract raw features (windows of data) for anomaly detection."""
@@ -34,16 +39,26 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
             feat = [                              # raw window
                 np.mean(window),
                 np.std(window),
-                np.min(window),
-                np.max(window),
+                skew(window),
+                kurtosis(window)
             ]
             features.append(feat)
             indices.append(i)
-            
-        return np.array(features), indices
+            flat_features = []
+            for f in features:
+                flat_f = []
+                for val in f:
+                    if isinstance(val, np.ndarray):
+                        flat_f.append(val.item())  # Assumes 1-element arrays
+                    else:
+                        flat_f.append(val)
+                flat_features.append(flat_f)
+
+        return np.array(flat_features), indices
+
 
     
-    def detect_anomalies(self, df, dataset):
+    def detect_anomalies(self, df,feature):
         """
         Detect collective anomalies in the data using One-Class SVM.
         
@@ -54,65 +69,58 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
         Returns:
             list: List of dictionaries containing anomaly intervals with 'start' and 'end' keys
         """
+        dataset = df
         try:
             # Check if dataset is a NumPy array or Pandas DataFrame and process accordingly
             if isinstance(dataset, pd.DataFrame):
+                print(f"dataset columns: {dataset.columns}")
+                print(f"feature: {feature}")
+
                 # If it's a DataFrame, extract the feature column (assuming first column if not specified)
-                feature_col = self.feature if hasattr(self, 'feature') else dataset.columns[0]
-                data = dataset[feature_col].values.reshape(-1, 1)
+                data = dataset[feature].values.reshape(-1, 1)
             else:
                 # If it's a NumPy array, directly reshape it
                 data = dataset.values.reshape(-1, 1)
             
-            # Normalize the data
             data_scaled = self.scaler.transform(data)
             
-            # Extract the last 'df' records
 
             target_data = data_scaled
             
             features = []
           
             features,ind = self.extract_raw_features_from_data(target_data)
+
             print(f"features: {features}")
             print(f"ind: {ind}")
             if len(features) == 0:
                 print("No features extracted. Data length may be less than window size.")
                 return []
             
-            # Check if model is loaded
             if self.model is None:
                 print("Error: No model loaded.")
                 return []
             
-            # Get decision scores from the model
             features_array = np.array(features)
             last_window_features = features_array[-1]
 
-# Reshape it to a 2D array with one row
             last_window_features_2d = last_window_features.reshape(1, -1)
 
-            # Now pass the reshaped 2D array to the decision function
             decision_scores = self.model.decision_function(last_window_features_2d)
             
-            # Determine anomalies based on threshold
             threshold =0
             print(f"threshold: {threshold}")
             
-            collective_anomalies = []  # List to store anomaly intervals
             # Collective anomaly detection
             for i, score in enumerate(decision_scores):
                 start_idx = ind[-1]
-                end_idx = min(start_idx +self.window_size, df)
-                if end_idx == df:
-                    start_idx = df - self.window_size
+                end_idx = min(start_idx +self.window_size, len(df))
+                if end_idx == len(df):
+                    start_idx = len(df) - self.window_size
                 
                 print(f"window score: {score}")
                 
-                # if score <= threshold:  # One-Class SVM: lower scores indicate anomalies
-                #     collective_anomalies.append({"start": start_idx, "end": end_idx})
-            
-            # print(collective_anomalies)
+                
             
          
             
