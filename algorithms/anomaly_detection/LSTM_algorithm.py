@@ -92,7 +92,6 @@ class LSTMAlgorithm(AnomalyDetectionAlgorithm):
 
             # Ensure proper shape for scaler
             data_scaled = self.scaler.transform(df_feature.values.reshape(-1, 1))
-            print(f"data_scaled: {data_scaled}")
 
             if data_scaled.shape[0] < self.seq_length + 1:
                 raise ValueError(f"Not enough data: need at least {self.seq_length + 1} rows.")

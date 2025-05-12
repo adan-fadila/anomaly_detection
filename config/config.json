@@ -53,13 +53,13 @@
           "model_path": "algorithms/anomaly_detection/models_weights/lstm_weights_motion_COL.weights.h5",
           "model": "COLLECTIVE_LSTM_model",
           "seq_length": 20,
-          "threshold_factor": 0.4,
+          "threshold_factor": 0.55,
           "scaler": "algorithms/anomaly_detection/models_weights/LSTM_COL_motion_scaler.pkl"
         },
         "OCSVM":{
           "model_path": "algorithms/anomaly_detection/models_weights/ocsvm_motion_model.joblib",
           "large_window_size": 20,
-          "threshold": 0,
+          "threshold": -4.4,
           "step_size": 18,
           "scaler_path": "algorithms/anomaly_detection/models_weights/ocsvm_trend_scaler_model.pkl"
         }

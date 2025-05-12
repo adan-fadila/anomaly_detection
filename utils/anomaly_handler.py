@@ -48,14 +48,14 @@ class AnomalyHandler:
                 anomaly_response = {
                     'anomalies': anomalies,
                     'plot_image': plot_image_base64,
-                    'name': "living room temperature pointwise anomaly"
+                    'name': f"living room {feature} pointwise anomaly"
                 }
                 for row in anomaly_response['anomalies']:
                     for k, v in row.items():
                         if isinstance(v, pd.Timestamp):
                             row[k] = str(v)
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
-            elif(anomaly_type == SEASONALITY):
+            elif(anomaly_type == COLLECTIVE):
                 anomalies = anomaly_result
                 
 
@@ -66,22 +66,10 @@ class AnomalyHandler:
                 anomaly_response = {
                     'anomalies': anomalies,
                     'plot_image': plot_image_base64,
-                    'name': "living room temperature seasonality anomaly"
+                    'name': f"living room {feature} collective anomaly"
                 }
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
-            elif(anomaly_type == TREND):
-                anomalies = anomaly_result
-
-                # Encode plots to Base64
-                plot_image_base64 = base64.b64encode(plot_image.getvalue()).decode('utf-8')
-
-                # Prepare response data
-                anomaly_response = {
-                    'anomalies': anomalies,
-                    'plot_image': plot_image_base64,
-                    'name': "living room temperature trend anomaly"
-                }
-               
+            
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
             elif(anomaly_type == COLLECTIVE):
                 anomalies = anomaly_result

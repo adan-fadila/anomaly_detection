@@ -73,9 +73,7 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
         try:
             # Check if dataset is a NumPy array or Pandas DataFrame and process accordingly
             if isinstance(dataset, pd.DataFrame):
-                print(f"dataset columns: {dataset.columns}")
-                print(f"feature: {feature}")
-
+               
                 # If it's a DataFrame, extract the feature column (assuming first column if not specified)
                 data = dataset[feature].values.reshape(-1, 1)
             else:
@@ -91,8 +89,6 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
           
             features,ind = self.extract_raw_features_from_data(target_data)
 
-            print(f"features: {features}")
-            print(f"ind: {ind}")
             if len(features) == 0:
                 print("No features extracted. Data length may be less than window size.")
                 return []
