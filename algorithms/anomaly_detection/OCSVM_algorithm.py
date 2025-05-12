@@ -15,9 +15,12 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
         self.step_size = step_size
         self.window_size = large_window_size
         self.threshold = threshold
-        scaler = os.path.join(DIR,scaler_path)
-        self.scaler = joblib.load(scaler)
-
+        if scaler_path != "none":
+            scaler = os.path.join(DIR,scaler_path)
+    
+            self.scaler = joblib.load(scaler)
+        else:
+            self.scaler = None
         try:
             self.model = joblib.load(model_path)
             print("Loaded pre-trained One-Class SVM model.")
@@ -37,10 +40,10 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
         for i in range(0, len(data_scaled) - self.window_size + 1, self.step_size):
             window = data_scaled[i:i + self.window_size]
             feat = [                              # raw window
-                np.mean(window),
-                np.std(window),
-                skew(window),
-                kurtosis(window)
+                np.mean(window.astype(float)),
+                np.std(window.astype(float)),
+                skew(window.astype(float)),
+                kurtosis(window.astype(float))
             ]
             features.append(feat)
             indices.append(i)
@@ -53,7 +56,6 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
                     else:
                         flat_f.append(val)
                 flat_features.append(flat_f)
-
         return np.array(flat_features), indices
 
 
@@ -79,10 +81,12 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
             else:
                 # If it's a NumPy array, directly reshape it
                 data = dataset.values.reshape(-1, 1)
+            if self.scaler is not None:
+                
+                data_scaled = self.scaler.transform(data)
+            else:
+                data_scaled = data
             
-            data_scaled = self.scaler.transform(data)
-            
-
             target_data = data_scaled
             
             features = []

@@ -361,10 +361,8 @@ class AnomalyDetectionManager:
         return buf
 
     def _plot_anomalies(self, df: pd.DataFrame, combined_anomalies: pd.DataFrame, feature):
-        print(f"df Anomalies: {df}")
         anomalies_in_window = combined_anomalies
         anomalies_in_window['timestamp'] = pd.to_datetime(anomalies_in_window['timestamp'])
-        print(f"Anomalies in window: {anomalies_in_window}")
 
         fig, ax = plt.subplots(figsize=(12, 6))
         df['timestamp'] = pd.to_datetime(df['timestamp'])
@@ -443,7 +441,8 @@ class AnomalyDetectionManager:
                 vote += 1
                 voted_algorithms.append(algorithm.name)
 
-        if vote > 1:
+        if vote > 0:
+            voted_algorithms.append("DBSCAN_algotithm")
             plot = self.plot_dataframe_with_anomalies(dataset, feature_col=feature)
             result = {'start': dataset.index[0], 'end': dataset.index[-1], 'algorithm': voted_algorithms}
             print(result)
@@ -455,11 +454,7 @@ class AnomalyDetectionManager:
     def detect_anomalies(self, df: pd.DataFrame, dataset, anomaly_type: str, feature: str):
         print(f"Anomaly Type: {anomaly_type}")
         print(f"Feature: {feature}")
-
         len_df = len(df)
-        print(f"df: {df}")
-        print(f"dataset: {dataset}")
-
         selected_algorithms = self._load_selected_algorithms(feature, anomaly_type)
 
         if anomaly_type == POINTWISE:
