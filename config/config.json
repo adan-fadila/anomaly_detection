@@ -7,6 +7,13 @@
             "collective": {
                 "name": "living room temperature collective anomaly"
             }
+        },"living_room_motion": {
+            "pointwise": {
+                "name": "living room motion pointwise anomaly"
+            },
+            "collective": {
+                "name": "living room motion collective anomaly"
+            }
         }
         },
     "features": {

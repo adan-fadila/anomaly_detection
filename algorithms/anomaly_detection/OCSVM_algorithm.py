@@ -104,8 +104,6 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
 
             decision_scores = self.model.decision_function(last_window_features_2d)
             
-            threshold =0
-            print(f"threshold: {threshold}")
             
             # Collective anomaly detection
             for i, score in enumerate(decision_scores):
@@ -120,7 +118,7 @@ class OneClassSVMAlgorithm(AnomalyDetectionAlgorithm):
             
          
             
-            return score <= threshold
+            return score <= self.threshold
         
         except Exception as e:
             print(f"Error detecting collective anomalies: {e}")
