@@ -106,7 +106,7 @@ class LSTMAlgorithm(AnomalyDetectionAlgorithm):
             is_anomaly = error > self.threshold_factor
 
             print(f"Predicted value: {predicted_value}, True value: {true_value}, Error: {error}, Is anomaly: {is_anomaly}")
-
+            
             if is_anomaly:
                 timestamp = df.iloc[self.seq_length].values[0] # Assuming timestamp is the index
                 feature = df_feature[self.seq_length]  # Get actual value before scaling
@@ -115,11 +115,14 @@ class LSTMAlgorithm(AnomalyDetectionAlgorithm):
                     "timestamp": [timestamp],
                     self.feature: [feature]
                 })
-            return result_df
+                return result_df
+            else:
+                print("No anomaly detected.")
+                return pd.DataFrame(columns=["timestamp", self.feature])
 
         except Exception as e:
             print(f"Error detecting pointwise anomalies: {e}")
-            return pd.DataFrame(columns=["timestamp", "temperature"])
+            return None
     
     
     def detect_collective_anomalies(self, df,feature=None):

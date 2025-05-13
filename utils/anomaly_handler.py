@@ -70,21 +70,21 @@ class AnomalyHandler:
                 }
                 self.node_communicator.send_to_node('anomaly', anomaly_response)
             
-                self.node_communicator.send_to_node('anomaly', anomaly_response)
-            elif(anomaly_type == COLLECTIVE):
-                anomalies = anomaly_result
+            #     self.node_communicator.send_to_node('anomaly', anomaly_response)
+            # elif(anomaly_type == COLLECTIVE):
+            #     anomalies = anomaly_result
 
-                # Encode plots to Base64
-                plot_image_base64 = base64.b64encode(plot_image.getvalue()).decode('utf-8')
+            #     # Encode plots to Base64
+            #     plot_image_base64 = base64.b64encode(plot_image.getvalue()).decode('utf-8')
 
-                # Prepare response data
-                anomaly_response = {
-                    'anomalies': anomalies,
-                    'plot_image': plot_image_base64,
-                    'name': "living room temperature colective anomaly"
-                }
+            #     # Prepare response data
+            #     anomaly_response = {
+            #         'anomalies': anomalies,
+            #         'plot_image': plot_image_base64,
+            #         'name': f"living room {feature} colective anomaly"
+            #     }
                
-                self.node_communicator.send_to_node('anomaly', anomaly_response)
+            #     self.node_communicator.send_to_node('anomaly', anomaly_response)
             
 
             return anomaly_response
@@ -126,7 +126,7 @@ class AnomalyHandler:
                 self.detect_for_features(new_lines_for_pointwise, POINTWISE)
                 self.last_pointwise_line = current_line_count
 
-            if current_line_count - self.last_Col_line >=COLLECTIVE_STEP_SIZE and current_line_count > 2*POINTWISE_WINDOW_SIZE:
+            if current_line_count - self.last_Col_line >=COLLECTIVE_STEP_SIZE and current_line_count > 2*COLLECTIVE_WINDOW_SIZE:
                 print(f"Found {current_line_count - self.last_Col_line} new lines. Running collective anomaly detection.")
                 # Pass only the new lines for pointwise detection
                 new_lines_for_pointwise = all_lines[-2*(COLLECTIVE_WINDOW_SIZE):]
