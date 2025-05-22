@@ -13,7 +13,6 @@ class NodeCommunicator:
     def send_to_node(self, endpoint_key, data):
         try:
             api_url = f"{self.base_url}{self.endpoints[endpoint_key]}"
-            print(f"Sending data to {api_url} with payload: {data}")
             response = requests.post(api_url, json=(data))
             logger.info(f"Sent data to {api_url}, Node.js response status: {response.status_code}")
             return response

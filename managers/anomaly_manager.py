@@ -442,9 +442,8 @@ class AnomalyDetectionManager:
                 voted_algorithms.append(algorithm.name)
 
         if vote > 0:
-            voted_algorithms.append("DBSCAN_algotithm")
             plot = self.plot_dataframe_with_anomalies(dataset, feature_col=feature)
-            result = {'start': dataset.index[0], 'end': dataset.index[-1], 'voting_algorithms': voted_algorithms}
+            result = {'start': dataset.index[len(dataset) // 2], 'end': dataset.index[-1], 'voting_algorithms': voted_algorithms}
             print(result)
             return result, plot
         else:

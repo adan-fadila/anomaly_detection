@@ -40,7 +40,7 @@ POINTWISE_OCSVM_STEP_SIZE = 1
 POINTWISE_OCSVM_THRESHOLD_FACTOR = -0.0005
 
 FEATEURES = ["temperature","motion"]
-COLUMNS = 'timestamp,temperature,humidity,motion,spaceId\n'
+COLUMNS = 'timestamp,temperature,humidity,motion,light_state,ac_state,desired_ac_temp,spaceId\n'
 
 POINTWISE_WINDOW_SIZE = 10
 SEASONALITY_WINDOW_SIZE = 9
