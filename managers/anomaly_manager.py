@@ -443,7 +443,11 @@ class AnomalyDetectionManager:
 
         if vote > 0:
             plot = self.plot_dataframe_with_anomalies(dataset, feature_col=feature)
-            result = {'start': dataset.index[len(dataset) // 2], 'end': dataset.index[-1], 'voting_algorithms': voted_algorithms}
+            result = {
+    'start': dataset.iloc[len(dataset) // 2]['timestamp'],
+    'end': dataset.iloc[-1]['timestamp'],
+    'voting_algorithms': voted_algorithms
+}
             print(result)
             return result, plot
         else:
