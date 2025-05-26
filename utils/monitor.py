@@ -12,15 +12,15 @@ class Monitor:
         self.scheduler = BackgroundScheduler()
 
     def start_monitor(self):
-        # # Job 1: Check anomaly logs
-        # self.scheduler.add_job(
-        #     self.anomaly_handler.check_logs,
-        #     'interval', # Repeatedly at a fixed interval 
-        #     minutes=0.1,
-        #     id='anomaly_monitor_job',
-        #     max_instances=1,
-        #     replace_existing=True
-        # )
+        # Job 1: Check anomaly logs
+        self.scheduler.add_job(
+            self.anomaly_handler.check_logs,
+            'interval', # Repeatedly at a fixed interval 
+            minutes=1,
+            id='anomaly_monitor_job',
+            max_instances=1,
+            replace_existing=True
+        )
 
         # Job 2: Check recommendation logs
         self.scheduler.add_job(
