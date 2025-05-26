@@ -3,7 +3,7 @@ import numpy as np
 import json
 import logging
 from sklearn.naive_bayes import GaussianNB
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 class BayesianRecommendation:
     def __init__(self, filepath=None):
@@ -23,7 +23,11 @@ class BayesianRecommendation:
         # Initialize models for different actions
         self.light_model = GaussianNB()
         self.ac_model = GaussianNB()
+        self.target_temp_model = GaussianNB()
+        self.ac_mode_model = GaussianNB()
         self.scaler = StandardScaler()
+        self.ac_mode_encoder = LabelEncoder()
+        
         self.data = None
         self.rules = []
         self.probability_tables = {}
@@ -50,16 +54,19 @@ class BayesianRecommendation:
             self.data = pd.read_csv(file_to_load)
             self.logger.info(f"Successfully loaded data with {len(self.data)} rows")
             
-            # Log data summary statistics
-            self.logger.info("Data summary statistics:")
-            for column in self.data.columns:
-                if self.data[column].dtype in [np.float64, np.int64]:
-                    self.logger.info(f"  {column}: min={self.data[column].min()}, max={self.data[column].max()}, mean={self.data[column].mean():.2f}, std={self.data[column].std():.2f}")
-                else:
-                    value_counts = self.data[column].value_counts()
-                    self.logger.info(f"  {column}: unique values={len(value_counts)}")
-                    for value, count in value_counts.items():
-                        self.logger.info(f"    {value}: {count} ({count/len(self.data)*100:.1f}%)")
+            # Log data summary statistics for relevant columns only
+            relevant_columns = ['living room temperature', 'living room motion', 'light_state', 'ac_state', 'targetTemperature', 'targetAcMode']
+            self.logger.info("Data summary statistics for relevant columns:")
+            
+            for column in relevant_columns:
+                if column in self.data.columns:
+                    if self.data[column].dtype in [np.float64, np.int64]:
+                        self.logger.info(f"  {column}: min={self.data[column].min()}, max={self.data[column].max()}, mean={self.data[column].mean():.2f}, std={self.data[column].std():.2f}")
+                    else:
+                        value_counts = self.data[column].value_counts()
+                        self.logger.info(f"  {column}: unique values={len(value_counts)}")
+                        for value, count in value_counts.items():
+                            self.logger.info(f"    {value}: {count} ({count/len(self.data)*100:.1f}%)")
             
             return True
         except Exception as e:
@@ -68,7 +75,7 @@ class BayesianRecommendation:
             return False
     
     def preprocess_data(self):
-        """Preprocess the data for training"""
+        """Preprocess the data for training (focusing only on relevant columns)"""
         self.logger.info("Starting data preprocessing")
         if self.data is None:
             self.logger.warning("No data loaded. Please load data first.")
@@ -77,25 +84,34 @@ class BayesianRecommendation:
         # Convert string boolean values to actual booleans
         self.logger.debug("Converting boolean string values to actual booleans")
         for col in ['living room motion', 'light_state', 'ac_state']:
-            if self.data[col].dtype == object:
+            if col in self.data.columns and self.data[col].dtype == object:
                 self.logger.debug(f"Converting column {col} from {self.data[col].dtype}")
                 self.data[col] = self.data[col].map({'true': True, 'false': False})
                 
-        # Extract features and targets
+        # Extract features (only temperature and motion - no humidity or spaceId)
         self.logger.info("Extracting features and targets")
-        self.features = self.data[['living room temperature', 'living room humidity', 'living room motion']]
+        self.features = self.data[['living room temperature', 'living room motion']]
         
         # Convert motion boolean to numeric
         self.logger.debug("Converting motion boolean to numeric")
         self.features['living room motion'] = self.features['living room motion'].astype(int)
         
-        # Scale numerical features
-        self.logger.info("Scaling numerical features")
-        numerical_features = ['living room temperature', 'living room humidity']
-        self.features[numerical_features] = self.scaler.fit_transform(self.features[numerical_features])
+        # Scale only numerical features (temperature)
+        self.logger.info("Scaling temperature feature")
+        self.features[['living room temperature']] = self.scaler.fit_transform(self.features[['living room temperature']])
         
+        # Prepare targets
         self.light_target = self.data['light_state'].astype(int)
         self.ac_target = self.data['ac_state'].astype(int)
+        self.target_temp_target = self.data['targetTemperature']
+        
+        # Encode AC mode for modeling
+        self.ac_mode_encoded = self.ac_mode_encoder.fit_transform(self.data['targetAcMode'])
+        
+        # Log AC mode mapping
+        self.logger.info("AC Mode encoding:")
+        for i, mode in enumerate(self.ac_mode_encoder.classes_):
+            self.logger.info(f"  {mode} -> {i}")
         
         # Log feature-target relationships
         self._log_feature_target_relationships()
@@ -108,52 +124,68 @@ class BayesianRecommendation:
         self.logger.info("Analyzing feature-target relationships:")
         
         # For each feature, analyze relationship with targets
-        for feature in ['living room temperature', 'living room humidity', 'living room motion']:
+        for feature in ['living room temperature', 'living room motion']:
             self.logger.info(f"Feature: {feature}")
             
-            # For continuous features (temperature, humidity)
-            if feature in ['living room temperature', 'living room humidity']:
+            # For continuous features (temperature)
+            if feature == 'living room temperature':
                 # Light state relationship
-                light_on_mean = self.data[self.data['light_state'] == True][feature].mean()
-                light_off_mean = self.data[self.data['light_state'] == False][feature].mean()
-                self.logger.info(f"  Light ON average {feature}: {light_on_mean:.2f}")
-                self.logger.info(f"  Light OFF average {feature}: {light_off_mean:.2f}")
+                light_on_data = self.data[self.data['light_state'] == True]
+                light_off_data = self.data[self.data['light_state'] == False]
+                
+                if len(light_on_data) > 0:
+                    light_on_mean = light_on_data[feature].mean()
+                    self.logger.info(f"  Light ON average {feature}: {light_on_mean:.2f}")
+                if len(light_off_data) > 0:
+                    light_off_mean = light_off_data[feature].mean()
+                    self.logger.info(f"  Light OFF average {feature}: {light_off_mean:.2f}")
                 
                 # AC state relationship
-                ac_on_mean = self.data[self.data['ac_state'] == True][feature].mean()
-                ac_off_mean = self.data[self.data['ac_state'] == False][feature].mean()
-                self.logger.info(f"  AC ON average {feature}: {ac_on_mean:.2f}")
-                self.logger.info(f"  AC OFF average {feature}: {ac_off_mean:.2f}")
+                ac_on_data = self.data[self.data['ac_state'] == True]
+                ac_off_data = self.data[self.data['ac_state'] == False]
+                
+                if len(ac_on_data) > 0:
+                    ac_on_mean = ac_on_data[feature].mean()
+                    self.logger.info(f"  AC ON average {feature}: {ac_on_mean:.2f}")
+                if len(ac_off_data) > 0:
+                    ac_off_mean = ac_off_data[feature].mean()
+                    self.logger.info(f"  AC OFF average {feature}: {ac_off_mean:.2f}")
+                
+                # Target temperature relationship
+                if len(ac_on_data) > 0:
+                    target_temp_mean = ac_on_data['targetTemperature'].mean()
+                    self.logger.info(f"  Average target temperature when AC ON: {target_temp_mean:.1f}")
             
             # For categorical features (motion)
             else:
                 # Create contingency tables
-                light_motion_table = pd.crosstab(
-                    self.data[feature], 
-                    self.data['light_state'],
-                    normalize='index'
-                ) * 100
-                
-                ac_motion_table = pd.crosstab(
-                    self.data[feature], 
-                    self.data['ac_state'],
-                    normalize='index'
-                ) * 100
-                
-                # Log tables
-                self.logger.info(f"  {feature} vs light_state (% of rows):")
-                for motion_val in [False, True]:
-                    if motion_val in light_motion_table.index:
-                        light_on_pct = light_motion_table.loc[motion_val, True] if True in light_motion_table.columns else 0
-                        light_off_pct = light_motion_table.loc[motion_val, False] if False in light_motion_table.columns else 0
-                        self.logger.info(f"    Motion={motion_val}: Light ON={light_on_pct:.1f}%, Light OFF={light_off_pct:.1f}%")
-                
-                self.logger.info(f"  {feature} vs ac_state (% of rows):")
-                for motion_val in [False, True]:
-                    if motion_val in ac_motion_table.index:
-                        ac_on_pct = ac_motion_table.loc[motion_val, True] if True in ac_motion_table.columns else 0
-                        ac_off_pct = ac_motion_table.loc[motion_val, False] if False in ac_motion_table.columns else 0
-                        self.logger.info(f"    Motion={motion_val}: AC ON={ac_on_pct:.1f}%, AC OFF={ac_off_pct:.1f}%")
+                if len(self.data[self.data[feature] == True]) > 0 and len(self.data[self.data[feature] == False]) > 0:
+                    light_motion_table = pd.crosstab(
+                        self.data[feature], 
+                        self.data['light_state'],
+                        normalize='index'
+                    ) * 100
+                    
+                    ac_motion_table = pd.crosstab(
+                        self.data[feature], 
+                        self.data['ac_state'],
+                        normalize='index'
+                    ) * 100
+                    
+                    # Log tables
+                    self.logger.info(f"  {feature} vs light_state (% of rows):")
+                    for motion_val in [False, True]:
+                        if motion_val in light_motion_table.index:
+                            light_on_pct = light_motion_table.loc[motion_val, True] if True in light_motion_table.columns else 0
+                            light_off_pct = light_motion_table.loc[motion_val, False] if False in light_motion_table.columns else 0
+                            self.logger.info(f"    Motion={motion_val}: Light ON={light_on_pct:.1f}%, Light OFF={light_off_pct:.1f}%")
+                    
+                    self.logger.info(f"  {feature} vs ac_state (% of rows):")
+                    for motion_val in [False, True]:
+                        if motion_val in ac_motion_table.index:
+                            ac_on_pct = ac_motion_table.loc[motion_val, True] if True in ac_motion_table.columns else 0
+                            ac_off_pct = ac_motion_table.loc[motion_val, False] if False in ac_motion_table.columns else 0
+                            self.logger.info(f"    Motion={motion_val}: AC ON={ac_on_pct:.1f}%, AC OFF={ac_off_pct:.1f}%")
     
     def train_models(self):
         """Train the Naive Bayes models"""
@@ -165,18 +197,29 @@ class BayesianRecommendation:
         # Train light model
         self.logger.info("Training light model")
         self.light_model.fit(self.features, self.light_target)
-        self.logger.debug(f"Light model class counts: {self.light_model.class_count_}")
-        
-        # Log light model parameters
         self._log_model_parameters(self.light_model, "Light")
         
         # Train AC model
         self.logger.info("Training AC model")
         self.ac_model.fit(self.features, self.ac_target)
-        self.logger.debug(f"AC model class counts: {self.ac_model.class_count_}")
-        
-        # Log AC model parameters
         self._log_model_parameters(self.ac_model, "AC")
+        
+        # Train target temperature model (only when AC is on)
+        ac_on_data = self.data[self.data['ac_state'] == True]
+        if len(ac_on_data) > 0:
+            self.logger.info("Training target temperature model")
+            ac_on_features = self.features[self.data['ac_state'] == True]
+            ac_on_target_temps = self.target_temp_target[self.data['ac_state'] == True]
+            self.target_temp_model.fit(ac_on_features, ac_on_target_temps)
+            self._log_model_parameters(self.target_temp_model, "Target Temperature")
+        
+        # Train AC mode model (only when AC is on)
+        if len(ac_on_data) > 0:
+            self.logger.info("Training AC mode model")
+            ac_on_features = self.features[self.data['ac_state'] == True]
+            ac_on_modes = self.ac_mode_encoded[self.data['ac_state'] == True]
+            self.ac_mode_model.fit(ac_on_features, ac_on_modes)
+            self._log_model_parameters(self.ac_mode_model, "AC Mode")
         
         self.logger.info("Models trained successfully")
         return True
@@ -185,8 +228,8 @@ class BayesianRecommendation:
         """Log detailed model parameters with interpretation"""
         self.logger.info(f"{model_name} Model Parameters:")
         
-        # Feature names for reference
-        feature_names = ['temperature', 'humidity', 'motion']
+        # Feature names for reference (no humidity)
+        feature_names = ['temperature', 'motion']
         
         # Class priors (probability of each class)
         class_priors = model.class_prior_
@@ -196,57 +239,20 @@ class BayesianRecommendation:
         if len(classes) == 1:
             self.logger.warning(f"  WARNING: Only one class found in {model_name} data: {classes[0]}")
             self.logger.info(f"  Prior probability for class {classes[0]}: {class_priors[0]:.4f}")
-            
-            # Log means for the single class
-            theta = model.theta_
-            self.logger.info(f"  Feature means for class {classes[0]}:")
-            for feat_idx, feat_name in enumerate(feature_names):
-                self.logger.info(f"    {feat_name}: {theta[0, feat_idx]:.4f}")
-            
-            # Log variances for the single class
-            variance = model.var_
-            self.logger.info(f"  Feature variances for class {classes[0]}:")
-            for feat_idx, feat_name in enumerate(feature_names):
-                self.logger.info(f"    {feat_name}: {variance[0, feat_idx]:.4f}")
-            
-            self.logger.warning(f"  Cannot calculate feature importance - only one class available")
             return
         
-        # Normal case with two classes
-        class_labels = ['OFF', 'ON'] if len(classes) == 2 else [str(c) for c in classes]
-        
+        # Normal case with multiple classes
         self.logger.info(f"  Prior probabilities:")
-        for i, (class_val, class_label) in enumerate(zip(classes, class_labels)):
-            self.logger.info(f"    {class_label} (value={class_val}): {class_priors[i]:.4f}")
+        for i, class_val in enumerate(classes):
+            self.logger.info(f"    {class_val}: {class_priors[i]:.4f}")
         
         # Theta (mean of each feature for each class)
         theta = model.theta_
         self.logger.info(f"  Feature means for each class:")
-        for class_idx, (class_val, class_label) in enumerate(zip(classes, class_labels)):
-            self.logger.info(f"    Class {class_label} (value={class_val}):")
+        for class_idx, class_val in enumerate(classes):
+            self.logger.info(f"    Class {class_val}:")
             for feat_idx, feat_name in enumerate(feature_names):
                 self.logger.info(f"      {feat_name}: {theta[class_idx, feat_idx]:.4f}")
-        
-        # Variance (variance of each feature for each class)
-        variance = model.var_
-        self.logger.info(f"  Feature variances for each class:")
-        for class_idx, (class_val, class_label) in enumerate(zip(classes, class_labels)):
-            self.logger.info(f"    Class {class_label} (value={class_val}):")
-            for feat_idx, feat_name in enumerate(feature_names):
-                self.logger.info(f"      {feat_name}: {variance[class_idx, feat_idx]:.4f}")
-        
-        # Feature importance (difference in means between classes)
-        if len(classes) == 2:
-            self.logger.info(f"  Feature importance (based on theta difference):")
-            for feat_idx, feat_name in enumerate(feature_names):
-                importance = (theta[1, feat_idx] - theta[0, feat_idx])
-                self.logger.info(f"    {feat_name}: {importance:.4f}")
-                if importance > 0:
-                    self.logger.info(f"      Higher {feat_name} favors {model_name} ON")
-                else:
-                    self.logger.info(f"      Lower {feat_name} favors {model_name} ON")
-        else:
-            self.logger.info(f"  Feature importance calculation requires exactly 2 classes")
     
     def _get_threshold_values(self):
         """Extract meaningful threshold values from the data"""
@@ -266,38 +272,43 @@ class BayesianRecommendation:
         self.logger.info(f"Temperature statistics: mean={temp_mean:.2f}, std={temp_std:.2f}")
         self.logger.info(f"Calculated thresholds: low={thresholds['temp_low']}, medium={thresholds['temp_medium']}, high={thresholds['temp_high']}")
         
-        # Generate visual distribution of temperature
-        self._log_temperature_distribution(temp_mean, temp_std, thresholds)
-        
         return thresholds
     
-    def _log_temperature_distribution(self, mean, std, thresholds):
-        """Create a simple text-based visualization of temperature distribution"""
-        self.logger.info("Temperature distribution (text visualization):")
+    def _get_most_common_target_temp_and_mode(self, condition_col=None, condition_val=None, operator=None, threshold=None):
+        """Get the most common target temperature and AC mode for given conditions"""
+        if condition_col and condition_val is not None:
+            # Categorical condition (e.g., motion)
+            filtered_data = self.data[self.data[condition_col] == condition_val]
+        elif condition_col and operator and threshold is not None:
+            # Numerical condition (e.g., temperature)
+            if operator == '>':
+                filtered_data = self.data[self.data[condition_col] > threshold]
+            elif operator == '<':
+                filtered_data = self.data[self.data[condition_col] < threshold]
+            else:
+                filtered_data = self.data[self.data[condition_col] == threshold]
+        else:
+            filtered_data = self.data
         
-        # Get min and max temperature
-        min_temp = self.data['living room temperature'].min()
-        max_temp = self.data['living room temperature'].max()
+        # Filter only when AC is on
+        ac_on_data = filtered_data[filtered_data['ac_state'] == True]
         
-        # Create distribution visualization
-        distribution = [' '] * 50  # 50 characters wide
+        if len(ac_on_data) == 0:
+            return None, None
         
-        # Mark thresholds
-        low_pos = int(((thresholds['temp_low'] - min_temp) / (max_temp - min_temp)) * 49)
-        med_pos = int(((thresholds['temp_medium'] - min_temp) / (max_temp - min_temp)) * 49)
-        high_pos = int(((thresholds['temp_high'] - min_temp) / (max_temp - min_temp)) * 49)
+        # Get most common target temperature
+        most_common_temp = ac_on_data['targetTemperature'].mode()
+        target_temp = most_common_temp.iloc[0] if len(most_common_temp) > 0 else 22
         
-        if 0 <= low_pos < 50:
-            distribution[low_pos] = 'L'
-        if 0 <= med_pos < 50:
-            distribution[med_pos] = 'M'
-        if 0 <= high_pos < 50:
-            distribution[high_pos] = 'H'
+        # Get most common AC mode
+        most_common_mode = ac_on_data['targetAcMode'].mode()
+        ac_mode = most_common_mode.iloc[0] if len(most_common_mode) > 0 else 'cool'
         
-        # Create the visualization
-        vis = '|' + ''.join(distribution) + '|'
-        self.logger.info(f"  {min_temp:.1f}{vis}{max_temp:.1f}")
-        self.logger.info(f"  L=Low threshold ({thresholds['temp_low']}), M=Medium ({thresholds['temp_medium']}), H=High ({thresholds['temp_high']})")
+        self.logger.debug(f"For condition {condition_col} {operator if operator else '='} {threshold if threshold else condition_val}:")
+        self.logger.debug(f"  Most common target temp: {target_temp}")
+        self.logger.debug(f"  Most common AC mode: {ac_mode}")
+        
+        return int(target_temp), ac_mode
     
     def generate_rules(self):
         """Generate rules based on the models and data patterns"""
@@ -367,10 +378,7 @@ class BayesianRecommendation:
         }
         self.probability_tables['high_temp'] = high_temp_table
         
-        self.logger.info(f"  P(light=on|temp>{thresholds['temp_high']}) = {high_temp_table['light_on']:.4f}")
-        self.logger.info(f"  P(light=off|temp>{thresholds['temp_high']}) = {high_temp_table['light_off']:.4f}")
         self.logger.info(f"  P(ac=on|temp>{thresholds['temp_high']}) = {high_temp_table['ac_on']:.4f}")
-        self.logger.info(f"  P(ac=off|temp>{thresholds['temp_high']}) = {high_temp_table['ac_off']:.4f}")
         
         # Low temperature probabilities
         low_temp_table = {
@@ -385,10 +393,7 @@ class BayesianRecommendation:
         }
         self.probability_tables['low_temp'] = low_temp_table
         
-        self.logger.info(f"  P(light=on|temp<{thresholds['temp_low']}) = {low_temp_table['light_on']:.4f}")
-        self.logger.info(f"  P(light=off|temp<{thresholds['temp_low']}) = {low_temp_table['light_off']:.4f}")
         self.logger.info(f"  P(ac=on|temp<{thresholds['temp_low']}) = {low_temp_table['ac_on']:.4f}")
-        self.logger.info(f"  P(ac=off|temp<{thresholds['temp_low']}) = {low_temp_table['ac_off']:.4f}")
     
     def _generate_motion_rules(self):
         """Generate rules based on motion sensor data"""
@@ -406,32 +411,25 @@ class BayesianRecommendation:
             rule = "if Living Room motion true then Living Room LIGHT on"
             self.rules.append(rule)
             self.logger.info(f"Added rule: {rule}")
-            self.logger.info(f"  Reason: When motion is detected, the light is ON {motion_light_on_prob*100:.1f}% of the time")
         elif motion_light_off_prob > probability_threshold:
             rule = "if Living Room motion true then Living Room LIGHT off"
             self.rules.append(rule)
             self.logger.info(f"Added rule: {rule}")
-            self.logger.info(f"  Reason: When motion is detected, the light is OFF {motion_light_off_prob*100:.1f}% of the time")
-        else:
-            self.logger.info(f"No motion→light rule added: probabilities too low (ON: {motion_light_on_prob*100:.1f}%, OFF: {motion_light_off_prob*100:.1f}%)")
         
-        # Motion → AC rules
+        # Motion → AC rules with target temp and mode
         motion_ac_on_prob = self.probability_tables['motion_ac']['ac_on']
         motion_ac_off_prob = self.probability_tables['motion_ac']['ac_off']
         
-        # Decide which rule to add based on strongest probability
         if motion_ac_on_prob > probability_threshold:
-            rule = "if Living Room motion true then Living Room AC on"
-            self.rules.append(rule)
-            self.logger.info(f"Added rule: {rule}")
-            self.logger.info(f"  Reason: When motion is detected, the AC is ON {motion_ac_on_prob*100:.1f}% of the time")
+            target_temp, ac_mode = self._get_most_common_target_temp_and_mode('living room motion', True)
+            if target_temp and ac_mode:
+                rule = f"if Living Room motion true then Living Room AC on {target_temp} {ac_mode}"
+                self.rules.append(rule)
+                self.logger.info(f"Added rule: {rule}")
         elif motion_ac_off_prob > probability_threshold:
             rule = "if Living Room motion true then Living Room AC off"
             self.rules.append(rule)
             self.logger.info(f"Added rule: {rule}")
-            self.logger.info(f"  Reason: When motion is detected, the AC is OFF {motion_ac_off_prob*100:.1f}% of the time")
-        else:
-            self.logger.info(f"No motion→AC rule added: probabilities too low (ON: {motion_ac_on_prob*100:.1f}%, OFF: {motion_ac_off_prob*100:.1f}%)")
     
     def _generate_temperature_rules(self, thresholds):
         """Generate rules based on temperature readings"""
@@ -441,84 +439,35 @@ class BayesianRecommendation:
         probability_threshold = 0.6
         
         # High temperature rules
-        high_temp_light_on_prob = self.probability_tables['high_temp']['light_on']
         high_temp_ac_on_prob = self.probability_tables['high_temp']['ac_on']
         
-        # High temp → Light rule
-        if high_temp_light_on_prob > probability_threshold:
-            rule = f"if Living Room temperature > {thresholds['temp_high']} then Living Room LIGHT on"
-            self.rules.append(rule)
-            self.logger.info(f"Added rule: {rule}")
-            self.logger.info(f"  Reason: When temperature > {thresholds['temp_high']}, the light is ON {high_temp_light_on_prob*100:.1f}% of the time")
-        
-        # High temp → AC rule
+        # High temp → AC rule with target temp and mode
         if high_temp_ac_on_prob > probability_threshold:
-            rule = f"if Living Room temperature > {thresholds['temp_high']} then Living Room AC on"
-            self.rules.append(rule)
-            self.logger.info(f"Added rule: {rule}")
-            self.logger.info(f"  Reason: When temperature > {thresholds['temp_high']}, the AC is ON {high_temp_ac_on_prob*100:.1f}% of the time")
+            target_temp, ac_mode = self._get_most_common_target_temp_and_mode(
+                'living room temperature', operator='>', threshold=thresholds['temp_high'])
+            if target_temp and ac_mode:
+                rule = f"if Living Room temperature > {thresholds['temp_high']} then Living Room AC on {target_temp} {ac_mode}"
+                self.rules.append(rule)
+                self.logger.info(f"Added rule: {rule}")
         
         # Low temperature rules
-        low_temp_light_on_prob = self.probability_tables['low_temp']['light_on']
         low_temp_ac_off_prob = self.probability_tables['low_temp']['ac_off']
-        
-        # Low temp → Light rule
-        if low_temp_light_on_prob > probability_threshold:
-            rule = f"if Living Room temperature < {thresholds['temp_low']} then Living Room LIGHT on"
-            self.rules.append(rule)
-            self.logger.info(f"Added rule: {rule}")
-            self.logger.info(f"  Reason: When temperature < {thresholds['temp_low']}, the light is ON {low_temp_light_on_prob*100:.1f}% of the time")
         
         # Low temp → AC rule
         if low_temp_ac_off_prob > probability_threshold:
             rule = f"if Living Room temperature < {thresholds['temp_low']} then Living Room AC off"
             self.rules.append(rule)
             self.logger.info(f"Added rule: {rule}")
-            self.logger.info(f"  Reason: When temperature < {thresholds['temp_low']}, the AC is OFF {low_temp_ac_off_prob*100:.1f}% of the time")
     
     def _generate_default_rules(self, thresholds):
         """Generate default rules based on model parameters when no clear patterns emerge from data"""
         self.logger.warning("No rules generated from data patterns. Falling back to model parameters.")
         
         # Check if models have enough classes for rule generation
-        light_classes = self.light_model.classes_
         ac_classes = self.ac_model.classes_
         
         # Use GaussianNB parameters to create rules
         temp_index = 0  # Index of temperature in feature array
-        
-        # Log model parameters we're using
-        self.logger.info("Using model parameters to generate default rules:")
-        
-        # Light model rules
-        if len(light_classes) >= 2:
-            light_temp_importance = self.light_model.theta_[1][temp_index] - self.light_model.theta_[0][temp_index]
-            self.logger.info(f"  Light model temperature importance: {light_temp_importance:.4f}")
-            
-            # If temperature has positive impact on light being on
-            if light_temp_importance > 0:
-                rule = f"if Living Room temperature > {thresholds['temp_medium']} then Living Room LIGHT on"
-                self.rules.append(rule)
-                self.logger.info(f"Added default rule: {rule}")
-                self.logger.info(f"  Reason: GaussianNB model shows higher temperatures favor LIGHT ON")
-            else:
-                rule = f"if Living Room temperature < {thresholds['temp_medium']} then Living Room LIGHT on"
-                self.rules.append(rule)
-                self.logger.info(f"Added default rule: {rule}")
-                self.logger.info(f"  Reason: GaussianNB model shows lower temperatures favor LIGHT ON")
-        else:
-            self.logger.warning(f"Light model has only one class ({light_classes[0]}), cannot generate temperature-based light rules")
-            # Generate a simple rule based on the single class
-            if light_classes[0] == 1:  # If lights are always on
-                rule = f"if Living Room motion true then Living Room LIGHT on"
-                self.rules.append(rule)
-                self.logger.info(f"Added default rule: {rule}")
-                self.logger.info(f"  Reason: Data shows lights are always ON")
-            else:  # If lights are always off
-                rule = f"if Living Room motion false then Living Room LIGHT off"
-                self.rules.append(rule)
-                self.logger.info(f"Added default rule: {rule}")
-                self.logger.info(f"  Reason: Data shows lights are always OFF")
         
         # AC model rules
         if len(ac_classes) >= 2:
@@ -527,28 +476,24 @@ class BayesianRecommendation:
             
             # If temperature has positive impact on AC being on
             if ac_temp_importance > 0:
-                rule = f"if Living Room temperature > {thresholds['temp_medium']} then Living Room AC on"
-                self.rules.append(rule)
-                self.logger.info(f"Added default rule: {rule}")
-                self.logger.info(f"  Reason: GaussianNB model shows higher temperatures favor AC ON")
+                target_temp, ac_mode = self._get_most_common_target_temp_and_mode()
+                if target_temp and ac_mode:
+                    rule = f"if Living Room temperature > {thresholds['temp_medium']} then Living Room AC on {target_temp} {ac_mode}"
+                    self.rules.append(rule)
+                    self.logger.info(f"Added default rule: {rule}")
             else:
                 rule = f"if Living Room temperature < {thresholds['temp_medium']} then Living Room AC off"
                 self.rules.append(rule)
                 self.logger.info(f"Added default rule: {rule}")
-                self.logger.info(f"  Reason: GaussianNB model shows lower temperatures favor AC OFF")
         else:
             self.logger.warning(f"AC model has only one class ({ac_classes[0]}), cannot generate temperature-based AC rules")
             # Generate a simple rule based on the single class
             if ac_classes[0] == 1:  # If AC is always on
-                rule = f"if Living Room temperature > {thresholds['temp_low']} then Living Room AC on"
-                self.rules.append(rule)
-                self.logger.info(f"Added default rule: {rule}")
-                self.logger.info(f"  Reason: Data shows AC is always ON")
-            else:  # If AC is always off
-                rule = f"if Living Room temperature < {thresholds['temp_high']} then Living Room AC off"
-                self.rules.append(rule)
-                self.logger.info(f"Added default rule: {rule}")
-                self.logger.info(f"  Reason: Data shows AC is always OFF")
+                target_temp, ac_mode = self._get_most_common_target_temp_and_mode()
+                if target_temp and ac_mode:
+                    rule = f"if Living Room temperature > {thresholds['temp_low']} then Living Room AC on {target_temp} {ac_mode}"
+                    self.rules.append(rule)
+                    self.logger.info(f"Added default rule: {rule}")
     
     def _calculate_conditional_probability(self, condition_col, condition_val, target_col, target_val):
         """Calculate P(target_val | condition_val) from the data"""
@@ -659,7 +604,6 @@ class BayesianRecommendation:
             self.logger.info(f"Rule #{i}: {rule}")
             
             # Extract condition and action from rule
-            # Format: "if Living Room X Y then Living Room Z W"
             parts = rule.split(' then ')
             condition = parts[0][3:]  # Remove "if " prefix
             action = parts[1]
@@ -734,7 +678,7 @@ class BayesianRecommendation:
         """Generate a final summary of the analysis with key insights"""
         self.logger.info("\n===== ANALYSIS SUMMARY =====")
         
-        # Data summary
+        # Data summary (only relevant columns)
         self.logger.info(f"Analyzed {len(self.data)} data points")
         self.logger.info(f"Temperature range: {self.data['living room temperature'].min():.1f} to {self.data['living room temperature'].max():.1f}")
         
@@ -752,13 +696,23 @@ class BayesianRecommendation:
         ac_on_pct = ac_on_count / len(self.data) * 100
         self.logger.info(f"AC ON in {ac_on_count} samples ({ac_on_pct:.1f}% of the time)")
         
+        # Target temperature and AC mode analysis
+        if ac_on_count > 0:
+            ac_on_data = self.data[self.data['ac_state'] == True]
+            avg_target_temp = ac_on_data['targetTemperature'].mean()
+            most_common_mode = ac_on_data['targetAcMode'].mode().iloc[0] if len(ac_on_data['targetAcMode'].mode()) > 0 else 'N/A'
+            self.logger.info(f"Average target temperature when AC is ON: {avg_target_temp:.1f}")
+            self.logger.info(f"Most common AC mode: {most_common_mode}")
+        
         # Rule count by type
         motion_rules = sum(1 for rule in self.rules if "motion true" in rule)
         temp_rules = sum(1 for rule in self.rules if "temperature" in rule)
+        enhanced_ac_rules = sum(1 for rule in self.rules if "AC on" in rule and len(rule.split()) > 8)
         
         self.logger.info(f"Generated {len(self.rules)} rules:")
         self.logger.info(f"  - {motion_rules} motion-based rules")
         self.logger.info(f"  - {temp_rules} temperature-based rules")
+        self.logger.info(f"  - {enhanced_ac_rules} enhanced AC rules (with target temp and mode)")
         
         # Key insights about the data
         self.logger.info("\nKey insights:")
