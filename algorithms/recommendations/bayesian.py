@@ -305,6 +305,10 @@ class BayesianRecommendation:
         most_common_temp = ac_on_data['targetTemperature'].mode()
         target_temp = most_common_temp.iloc[0] if len(most_common_temp) > 0 else 22
         
+        if target_temp < 19:
+            target_temp = 19
+            self.logger.debug(f"Target temperature was below 19°C, adjusted to minimum: {target_temp}")
+        
         # Get most common AC mode
         most_common_mode = ac_on_data['targetAcMode'].mode()
         ac_mode = most_common_mode.iloc[0] if len(most_common_mode) > 0 else 'cool'
