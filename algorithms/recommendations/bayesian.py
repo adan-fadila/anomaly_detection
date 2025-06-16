@@ -274,21 +274,26 @@ class BayesianRecommendation:
         
         return thresholds
     
-    def _get_most_common_target_temp_and_mode(self, condition_col=None, condition_val=None, operator=None, threshold=None):
-        """Get the most common target temperature and AC mode for given conditions"""
-        if condition_col and condition_val is not None:
-            # Categorical condition (e.g., motion)
-            filtered_data = self.data[self.data[condition_col] == condition_val]
-        elif condition_col and operator and threshold is not None:
-            # Numerical condition (e.g., temperature)
-            if operator == '>':
-                filtered_data = self.data[self.data[condition_col] > threshold]
-            elif operator == '<':
-                filtered_data = self.data[self.data[condition_col] < threshold]
-            else:
-                filtered_data = self.data[self.data[condition_col] == threshold]
-        else:
-            filtered_data = self.data
+    def _get_most_common_target_temp_and_mode(self, condition_filters=None):
+        """
+        Get the most common target temperature and AC mode for given conditions
+        
+        Args:
+            condition_filters: List of tuples like [('column', 'operator', value), ...]
+                             e.g., [('living room temperature', '>', 25), ('living room motion', '==', True)]
+        """
+        filtered_data = self.data.copy()
+        
+        if condition_filters:
+            for col, operator, value in condition_filters:
+                if operator == '>':
+                    filtered_data = filtered_data[filtered_data[col] > value]
+                elif operator == '<':
+                    filtered_data = filtered_data[filtered_data[col] < value]
+                elif operator == '==':
+                    filtered_data = filtered_data[filtered_data[col] == value]
+                elif operator == '!=':
+                    filtered_data = filtered_data[filtered_data[col] != value]
         
         # Filter only when AC is on
         ac_on_data = filtered_data[filtered_data['ac_state'] == True]
@@ -304,11 +309,89 @@ class BayesianRecommendation:
         most_common_mode = ac_on_data['targetAcMode'].mode()
         ac_mode = most_common_mode.iloc[0] if len(most_common_mode) > 0 else 'cool'
         
-        self.logger.debug(f"For condition {condition_col} {operator if operator else '='} {threshold if threshold else condition_val}:")
+        self.logger.debug(f"For conditions {condition_filters}:")
         self.logger.debug(f"  Most common target temp: {target_temp}")
         self.logger.debug(f"  Most common AC mode: {ac_mode}")
         
         return int(target_temp), ac_mode
+    
+    def _calculate_combined_conditional_probability(self, conditions, target_col, target_val):
+        """
+        Calculate conditional probability for multiple conditions combined with AND
+        
+        Args:
+            conditions: List of tuples [(col, operator, value), ...]
+            target_col: Target column name
+            target_val: Target value to check
+            
+        Returns:
+            Probability P(target_val | condition1 AND condition2 AND ...)
+        """
+        filtered_data = self.data.copy()
+        
+        # Apply all conditions
+        for col, operator, value in conditions:
+            if operator == '>':
+                filtered_data = filtered_data[filtered_data[col] > value]
+            elif operator == '<':
+                filtered_data = filtered_data[filtered_data[col] < value]
+            elif operator == '==':
+                filtered_data = filtered_data[filtered_data[col] == value]
+            elif operator == '!=':
+                filtered_data = filtered_data[filtered_data[col] != value]
+        
+        if len(filtered_data) == 0:
+            return 0
+        
+        count_matches = len(filtered_data[filtered_data[target_col] == target_val])
+        prob = count_matches / len(filtered_data)
+        
+        condition_str = " AND ".join([f"{col} {op} {val}" for col, op, val in conditions])
+        self.logger.debug(f"P({target_col}={target_val} | {condition_str}) = {prob:.4f} ({count_matches}/{len(filtered_data)})")
+        
+        return prob
+    
+    def _calculate_combined_conditional_probability_or(self, conditions, target_col, target_val):
+        """
+        Calculate conditional probability for multiple conditions combined with OR
+        
+        Args:
+            conditions: List of tuples [(col, operator, value), ...]
+            target_col: Target column name
+            target_val: Target value to check
+            
+        Returns:
+            Probability P(target_val | condition1 OR condition2 OR ...)
+        """
+        # Create a mask for OR conditions
+        or_mask = pd.Series([False] * len(self.data), index=self.data.index)
+        
+        for col, operator, value in conditions:
+            if operator == '>':
+                condition_mask = self.data[col] > value
+            elif operator == '<':
+                condition_mask = self.data[col] < value
+            elif operator == '==':
+                condition_mask = self.data[col] == value
+            elif operator == '!=':
+                condition_mask = self.data[col] != value
+            else:
+                condition_mask = pd.Series([False] * len(self.data), index=self.data.index)
+            
+            or_mask = or_mask | condition_mask
+        
+        filtered_data = self.data[or_mask]
+        
+        if len(filtered_data) == 0:
+            return 0
+        
+        count_matches = len(filtered_data[filtered_data[target_col] == target_val])
+        prob = count_matches / len(filtered_data)
+        
+        condition_str = " OR ".join([f"{col} {op} {val}" for col, op, val in conditions])
+        self.logger.debug(f"P({target_col}={target_val} | {condition_str}) = {prob:.4f} ({count_matches}/{len(filtered_data)})")
+        
+        return prob
     
     def generate_rules(self):
         """Generate rules based on the models and data patterns"""
@@ -319,11 +402,12 @@ class BayesianRecommendation:
         # Calculate and log all conditional probabilities
         self._calculate_all_conditional_probabilities(thresholds)
         
-        # Generate motion-based rules
+        # Generate single-condition rules (original functionality)
         self._generate_motion_rules()
-        
-        # Generate temperature-based rules
         self._generate_temperature_rules(thresholds)
+        
+        # NEW: Generate multi-condition rules
+        self._generate_multi_condition_rules(thresholds)
         
         # If no rules were generated, add default ones based on model parameters
         if not self.rules:
@@ -331,6 +415,87 @@ class BayesianRecommendation:
         
         self.logger.info(f"Rule generation completed. Generated {len(self.rules)} rules.")
         return self.rules
+    
+    def _generate_multi_condition_rules(self, thresholds):
+        """Generate rules with multiple conditions (temperature AND/OR motion)"""
+        self.logger.info("Generating multi-condition rules")
+        
+        # Probability threshold for generating rules
+        probability_threshold = 0.7  # Higher threshold for multi-condition rules
+        
+        # Define condition combinations to test
+        temp_conditions = [
+            ('living room temperature', '>', thresholds['temp_high']),
+            ('living room temperature', '<', thresholds['temp_low'])
+        ]
+        
+        motion_conditions = [
+            ('living room motion', '==', True),
+            ('living room motion', '==', False)
+        ]
+        
+        # Test AND combinations
+        self.logger.info("Testing AND combinations:")
+        for temp_cond in temp_conditions:
+            for motion_cond in motion_conditions:
+                conditions = [temp_cond, motion_cond]
+                self._test_and_add_combined_rule(conditions, "AND", thresholds, probability_threshold)
+        
+        # Test OR combinations
+        self.logger.info("Testing OR combinations:")
+        for temp_cond in temp_conditions:
+            for motion_cond in motion_conditions:
+                conditions = [temp_cond, motion_cond]
+                self._test_and_add_combined_rule(conditions, "OR", thresholds, probability_threshold)
+    
+    def _test_and_add_combined_rule(self, conditions, operator, thresholds, probability_threshold):
+        """Test a combination of conditions and add rule if probability is high enough"""
+        
+        # Test for LIGHT rules
+        for light_state in [True, False]:
+            if operator == "AND":
+                prob = self._calculate_combined_conditional_probability(conditions, 'light_state', light_state)
+            else:  # OR
+                prob = self._calculate_combined_conditional_probability_or(conditions, 'light_state', light_state)
+            
+            if prob > probability_threshold:
+                rule_str = self._format_combined_rule(conditions, operator, "LIGHT", "on" if light_state else "off")
+                if rule_str not in self.rules:  # Avoid duplicates
+                    self.rules.append(rule_str)
+                    self.logger.info(f"Added multi-condition LIGHT rule: {rule_str} (prob={prob:.3f})")
+        
+        # Test for AC rules
+        for ac_state in [True, False]:
+            if operator == "AND":
+                prob = self._calculate_combined_conditional_probability(conditions, 'ac_state', ac_state)
+            else:  # OR
+                prob = self._calculate_combined_conditional_probability_or(conditions, 'ac_state', ac_state)
+            
+            if prob > probability_threshold:
+                if ac_state:  # AC ON - need target temp and mode
+                    target_temp, ac_mode = self._get_most_common_target_temp_and_mode(conditions)
+                    if target_temp and ac_mode:
+                        rule_str = self._format_combined_rule(conditions, operator, "AC", f"on {target_temp} {ac_mode}")
+                else:  # AC OFF
+                    rule_str = self._format_combined_rule(conditions, operator, "AC", "off")
+                
+                if rule_str not in self.rules:  # Avoid duplicates
+                    self.rules.append(rule_str)
+                    self.logger.info(f"Added multi-condition AC rule: {rule_str} (prob={prob:.3f})")
+    
+    def _format_combined_rule(self, conditions, operator, device, action):
+        """Format a multi-condition rule string"""
+        condition_strs = []
+        
+        for col, op, value in conditions:
+            if col == 'living room temperature':
+                condition_strs.append(f"Living Room temperature {op} {value}")
+            elif col == 'living room motion':
+                motion_str = "true" if value else "false"
+                condition_strs.append(f"Living Room motion {motion_str}")
+        
+        condition_part = f" {operator} ".join(condition_strs)
+        return f"if {condition_part} then Living Room {device} {action}"
     
     def _calculate_all_conditional_probabilities(self, thresholds):
         """Calculate and log all relevant conditional probabilities"""
@@ -421,7 +586,7 @@ class BayesianRecommendation:
         motion_ac_off_prob = self.probability_tables['motion_ac']['ac_off']
         
         if motion_ac_on_prob > probability_threshold:
-            target_temp, ac_mode = self._get_most_common_target_temp_and_mode('living room motion', True)
+            target_temp, ac_mode = self._get_most_common_target_temp_and_mode([('living room motion', '==', True)])
             if target_temp and ac_mode:
                 rule = f"if Living Room motion true then Living Room AC on {target_temp} {ac_mode}"
                 self.rules.append(rule)
@@ -443,8 +608,9 @@ class BayesianRecommendation:
         
         # High temp → AC rule with target temp and mode
         if high_temp_ac_on_prob > probability_threshold:
-            target_temp, ac_mode = self._get_most_common_target_temp_and_mode(
-                'living room temperature', operator='>', threshold=thresholds['temp_high'])
+            target_temp, ac_mode = self._get_most_common_target_temp_and_mode([
+                ('living room temperature', '>', thresholds['temp_high'])
+            ])
             if target_temp and ac_mode:
                 rule = f"if Living Room temperature > {thresholds['temp_high']} then Living Room AC on {target_temp} {ac_mode}"
                 self.rules.append(rule)
@@ -589,7 +755,7 @@ class BayesianRecommendation:
             return {"recommended_rules": [], "error": error_msg}
     
     def print_rules(self):
-        """Print all generated rules"""
+        """Print all generated rules with enhanced explanations for multi-condition rules"""
         if not self.rules:
             self.logger.warning("No rules generated yet.")
             return
@@ -608,8 +774,12 @@ class BayesianRecommendation:
             condition = parts[0][3:]  # Remove "if " prefix
             action = parts[1]
             
-            # Log explanation based on rule type
-            if "motion true" in condition:
+            # Enhanced explanation based on rule type
+            if " AND " in condition:
+                self._explain_and_rule(condition, action)
+            elif " OR " in condition:
+                self._explain_or_rule(condition, action)
+            elif "motion true" in condition:
                 # Motion-based rule
                 if "LIGHT on" in action:
                     prob = self.probability_tables['motion_light']['light_on'] * 100
@@ -645,6 +815,46 @@ class BayesianRecommendation:
                     self.logger.info(f"  Explanation: When temperature < {threshold}, the AC is OFF {prob:.1f}% of the time")
             
             self.logger.info("") # Add a blank line for readability
+    
+    def _explain_and_rule(self, condition, action):
+        """Explain AND-based multi-condition rules"""
+        self.logger.info(f"  Explanation: This is a multi-condition rule using AND operator")
+        self.logger.info(f"  All conditions must be true simultaneously for the action to trigger")
+        
+        # Parse conditions
+        and_parts = condition.split(' AND ')
+        temp_condition = None
+        motion_condition = None
+        
+        for part in and_parts:
+            if "temperature" in part:
+                temp_condition = part.strip()
+            elif "motion" in part:
+                motion_condition = part.strip()
+        
+        if temp_condition and motion_condition:
+            self.logger.info(f"  When BOTH [{temp_condition}] AND [{motion_condition}] are true,")
+            self.logger.info(f"  the system performs: {action}")
+    
+    def _explain_or_rule(self, condition, action):
+        """Explain OR-based multi-condition rules"""
+        self.logger.info(f"  Explanation: This is a multi-condition rule using OR operator")
+        self.logger.info(f"  Any one of the conditions can trigger the action")
+        
+        # Parse conditions
+        or_parts = condition.split(' OR ')
+        temp_condition = None
+        motion_condition = None
+        
+        for part in or_parts:
+            if "temperature" in part:
+                temp_condition = part.strip()
+            elif "motion" in part:
+                motion_condition = part.strip()
+        
+        if temp_condition and motion_condition:
+            self.logger.info(f"  When EITHER [{temp_condition}] OR [{motion_condition}] is true,")
+            self.logger.info(f"  the system performs: {action}")
     
     def run(self, filepath=None):
         """Complete execution flow"""
@@ -704,14 +914,18 @@ class BayesianRecommendation:
             self.logger.info(f"Average target temperature when AC is ON: {avg_target_temp:.1f}")
             self.logger.info(f"Most common AC mode: {most_common_mode}")
         
-        # Rule count by type
-        motion_rules = sum(1 for rule in self.rules if "motion true" in rule)
-        temp_rules = sum(1 for rule in self.rules if "temperature" in rule)
+        # Enhanced rule count by type
+        motion_rules = sum(1 for rule in self.rules if "motion true" in rule and " AND " not in rule and " OR " not in rule)
+        temp_rules = sum(1 for rule in self.rules if "temperature" in rule and " AND " not in rule and " OR " not in rule)
+        and_rules = sum(1 for rule in self.rules if " AND " in rule)
+        or_rules = sum(1 for rule in self.rules if " OR " in rule)
         enhanced_ac_rules = sum(1 for rule in self.rules if "AC on" in rule and len(rule.split()) > 8)
         
         self.logger.info(f"Generated {len(self.rules)} rules:")
-        self.logger.info(f"  - {motion_rules} motion-based rules")
-        self.logger.info(f"  - {temp_rules} temperature-based rules")
+        self.logger.info(f"  - {motion_rules} single motion-based rules")
+        self.logger.info(f"  - {temp_rules} single temperature-based rules")
+        self.logger.info(f"  - {and_rules} multi-condition AND rules")
+        self.logger.info(f"  - {or_rules} multi-condition OR rules")
         self.logger.info(f"  - {enhanced_ac_rules} enhanced AC rules (with target temp and mode)")
         
         # Key insights about the data
@@ -736,6 +950,12 @@ class BayesianRecommendation:
                 self.logger.info(f"  - Temperature and AC have a negative correlation ({temp_ac_corr:.2f}): lower temperatures trigger AC (unusual)")
         else:
             self.logger.info(f"  - Temperature and AC have weak correlation ({temp_ac_corr:.2f}): no clear pattern")
+        
+        # Multi-condition insights
+        if and_rules > 0:
+            self.logger.info(f"  - Generated {and_rules} AND rules: these require ALL conditions to be true simultaneously")
+        if or_rules > 0:
+            self.logger.info(f"  - Generated {or_rules} OR rules: these trigger when ANY condition is true")
         
         self.logger.info("===== END SUMMARY =====\n")
     
