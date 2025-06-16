@@ -95,7 +95,7 @@ class AnomalyHandler:
 
     def check_logs(self):
         if not os.path.exists(self.data_frame_file):
-            logger.warning(f"File not found: {self.dataset_file}")
+            logger.warning(f"File not found: {self.data_frame_file}")
             return
             
         current_modified_time = os.path.getmtime(self.data_frame_file)

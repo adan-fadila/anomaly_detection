@@ -21,6 +21,38 @@ anomaly_detection_bp = Blueprint('anomaly_detection', __name__)
 recommendation_bp = Blueprint('recommendation', __name__)
 
 ############################################################################################################
+# Health Check Endpoint
+@anomaly_detection_bp.route('/health', methods=['GET'])
+def health_check():
+    """
+    Health check endpoint for the anomaly detection service.
+    ---
+    tags:
+      - Health
+    responses:
+      200:
+        description: Service is healthy
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "healthy"
+            service:
+              type: string
+              example: "anomaly_detection"
+            timestamp:
+              type: string
+              format: date-time
+    """
+    from datetime import datetime
+    return jsonify({
+        'status': 'healthy',
+        'service': 'anomaly_detection',
+        'timestamp': datetime.now().isoformat()
+    }), 200
+
+############################################################################################################
 # Route: Detect Anomalies with Payload
 @anomaly_detection_bp.route('/detect_anomalies', methods=['POST'])
 def detect_anomalies():
